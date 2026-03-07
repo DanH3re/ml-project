@@ -19,6 +19,7 @@ Key features:
 
 The POS tagging pipeline:
 
+'''
 Text Dataset
       ↓
 Tokenization
@@ -36,6 +37,7 @@ Transformer Block
 Classification Head
       ↓
 POS Tag Predictions
+'''
 
 The Transformer model outputs probability distributions for each word's POS tag, enabling precise tagging and interpretability.
 
