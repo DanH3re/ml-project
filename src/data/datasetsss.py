@@ -4,7 +4,7 @@ import nltk
 from nltk.corpus import brown
 from datasets import load_dataset
 
-from src.data.vocabulary import (
+from data.vocabulary import (
     preprocess_tokens,
     preprocess_tags,
     build_vocab,
