@@ -72,6 +72,7 @@ class TokenAndPositionEmbedding(layers.Layer):
             mask_zero=True,
         )
         self.pos_emb = layers.Embedding(input_dim=maxlen, output_dim=embed_dim)
+        self.supports_masking = True
 
     def call(self, x):
         seq_len = tf.shape(x)[-1]
@@ -79,6 +80,9 @@ class TokenAndPositionEmbedding(layers.Layer):
         positions = self.pos_emb(positions)
         x = self.token_emb(x)
         return x + positions
+
+    def compute_mask(self, inputs, mask=None):
+        return self.token_emb.compute_mask(inputs)
 
 
 class TransformerBlock(layers.Layer):
@@ -93,9 +97,14 @@ class TransformerBlock(layers.Layer):
         self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
         self.dropout1 = layers.Dropout(rate)
         self.dropout2 = layers.Dropout(rate)
+        self.supports_masking = True
 
-    def call(self, inputs, training=False):
-        attn_output = self.att(inputs, inputs)
+    def call(self, inputs, training=False, mask=None):
+        attention_mask = None
+        if mask is not None:
+            # mask: (batch, seq_len) → (batch, 1, seq_len) to mask padding keys
+            attention_mask = mask[:, tf.newaxis, :]
+        attn_output = self.att(inputs, inputs, attention_mask=attention_mask)
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(inputs + attn_output)
         ffn_output = self.ffn(out1)
@@ -440,11 +449,14 @@ def train_one_config(
     train_time_sec = time.perf_counter() - start
 
     metrics = evaluate_model(
-    model,
-    X_test,
-    y_test,
-    predict_batch_size=int(config.get("predict_batch_size", 32)),
-)
+        model,
+        X_test,
+        y_test,
+        predict_batch_size=int(config.get("predict_batch_size", 32)),
+        model_type=config["model_type"],
+        config=config,
+        use_gpu=use_gpu,
+    )
 
     models_dir.mkdir(parents=True, exist_ok=True)
     model_path = models_dir / f"{slugify(name)}.keras"
