@@ -17,7 +17,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-from data.dataset import load_ud
+from data.dataset import load_dataset_by_name
 
 SAVE_MODELS = False
 
@@ -377,31 +377,34 @@ def slugify(name: str) -> str:
 
 def get_dataset_for_sentences(
     sentences: int | str,
-    dataset_cache: dict[int | str, dict[str, Any]],
+    dataset_name: str,
+    dataset_cache: dict[tuple[str, int | str], dict[str, Any]],
 ) -> dict[str, Any]:
-    if sentences not in dataset_cache:
+    cache_key = (dataset_name, sentences)
+    if cache_key not in dataset_cache:
         n = None if sentences == "max" else int(sentences)
         label = "all" if sentences == "max" else sentences
-        print(f"\nLoading dataset for sentences={label} ...")
-        raw_data, vocab, encoded = load_ud(n=n)
-        dataset_cache[sentences] = {
+        print(f"\nLoading dataset={dataset_name}, sentences={label} ...")
+        raw_data, vocab, encoded = load_dataset_by_name(dataset_name, n=n)
+        dataset_cache[cache_key] = {
             "raw_data": raw_data,
             "vocab": vocab,
             "encoded": encoded,
             "actual_sentences": len(encoded),
         }
-    return dataset_cache[sentences]
+    return dataset_cache[cache_key]
 
 
 def prepare_split_for_config(
     config: dict[str, Any],
-    dataset_cache: dict[int | str, dict[str, Any]],
+    dataset_cache: dict[tuple[str, int | str], dict[str, Any]],
 ) -> dict[str, Any]:
     sentences = config["sentences"]  # int or "max"
+    dataset_name = config.get("dataset", "ud")  # default to UD for backwards compatibility
     maxlen = int(config["maxlen"])
     split_seed = int(config["split_seed"])
 
-    ds = get_dataset_for_sentences(sentences, dataset_cache)
+    ds = get_dataset_for_sentences(sentences, dataset_name, dataset_cache)
     raw_data = ds["raw_data"]
     vocab = ds["vocab"]
     encoded = ds["encoded"]
@@ -441,7 +444,7 @@ def train_one_config(
     config: dict[str, Any],
     use_gpu: str,
     models_dir: Path,
-    dataset_cache: dict[int | str, dict[str, Any]],
+    dataset_cache: dict[tuple[str, int | str], dict[str, Any]],
 ) -> dict[str, Any]:
     name = config.get("name", f"{config['model_type']}_run")
     run_seed = int(config.get("seed", config.get("split_seed", 42)))
@@ -512,6 +515,7 @@ def train_one_config(
         "model_type": config["model_type"],
         "config": make_json_safe(config),
         "dataset_meta": {
+            "dataset": config.get("dataset", "ud"),
             "sentences": int(prepared["actual_sentences"]),
             "sentences_config": config["sentences"],
             "maxlen": int(config["maxlen"]),
@@ -582,7 +586,7 @@ def main() -> None:
 
     results = []
     models_dir = Path(args.models_dir)
-    dataset_cache: dict[int | str, dict[str, Any]] = {}
+    dataset_cache: dict[tuple[str, int | str], dict[str, Any]] = {}
 
     for cfg in configs:
         result = train_one_config(

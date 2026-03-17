@@ -1,0 +1,219 @@
+[
+  {
+    "name": "brown_transformer_small",
+    "model_type": "transformer",
+    "config": {
+      "name": "brown_transformer_small",
+      "group": "baseline_comparison",
+      "dataset": "brown",
+      "model_type": "transformer",
+      "sentences": "max",
+      "maxlen": 30,
+      "split_seed": 42,
+      "seed": 42,
+      "embed_dim": 128,
+      "num_heads": 4,
+      "ff_dim": 128,
+      "num_layers": 1,
+      "dropout": 0.1,
+      "lr": 0.001,
+      "epochs": 12,
+      "batch_size": 64,
+      "early_stopping": true,
+      "patience": 3,
+      "validation_split": 0.2,
+      "vocab_size": 49817,
+      "num_tags": 182
+    },
+    "dataset_meta": {
+      "dataset": "brown",
+      "sentences": 57340,
+      "sentences_config": "max",
+      "maxlen": 30,
+      "split_seed": 42,
+      "seed": 42,
+      "vocab_size": 49817,
+      "num_tags": 182,
+      "shapes": {
+        "X": [
+          57340,
+          30
+        ],
+        "y": [
+          57340,
+          30
+        ],
+        "X_train": [
+          45872,
+          30
+        ],
+        "X_test": [
+          11468,
+          30
+        ],
+        "y_train": [
+          45872,
+          30
+        ],
+        "y_test": [
+          11468,
+          30
+        ]
+      }
+    },
+    "num_params": 6701238,
+    "train_time_sec": 32.87211863600169,
+    "best_val_accuracy": 0.9520289897918701,
+    "best_val_loss": 0.14438410103321075,
+    "epochs_ran": 5,
+    "history": {
+      "accuracy": [
+        0.9186483025550842,
+        0.9645490050315857,
+        0.9712322950363159,
+        0.976784884929657,
+        0.981532871723175
+      ],
+      "loss": [
+        0.29135677218437195,
+        0.09527957439422607,
+        0.0752141922712326,
+        0.06135563179850578,
+        0.04974077269434929
+      ],
+      "val_accuracy": [
+        0.9486144185066223,
+        0.9520289897918701,
+        0.9509354829788208,
+        0.9486393332481384,
+        0.947425901889801
+      ],
+      "val_loss": [
+        0.14913764595985413,
+        0.14438410103321075,
+        0.15573905408382416,
+        0.18008923530578613,
+        0.19752460718154907
+      ]
+    },
+    "test_metrics": {
+      "token_accuracy": 0.9211852749641686,
+      "precision": 0.9202871776253915,
+      "recall": 0.9211852749641686,
+      "f1": 0.9200463493274499,
+      "predict_batch_size_used": 32,
+      "predict_device": "gpu"
+    },
+    "model_path": "resources/models/brown_transformer_small.keras",
+    "model_saved": false
+  },
+  {
+    "name": "brown_lstm_baseline",
+    "model_type": "lstm",
+    "config": {
+      "name": "brown_lstm_baseline",
+      "group": "baseline_comparison",
+      "dataset": "brown",
+      "model_type": "lstm",
+      "sentences": "max",
+      "maxlen": 30,
+      "split_seed": 42,
+      "seed": 42,
+      "embed_dim": 128,
+      "lstm_units": 64,
+      "lr": 0.001,
+      "epochs": 15,
+      "batch_size": 32,
+      "early_stopping": true,
+      "patience": 3,
+      "validation_split": 0.2,
+      "vocab_size": 49817,
+      "num_tags": 182
+    },
+    "dataset_meta": {
+      "dataset": "brown",
+      "sentences": 57340,
+      "sentences_config": "max",
+      "maxlen": 30,
+      "split_seed": 42,
+      "seed": 42,
+      "vocab_size": 49817,
+      "num_tags": 182,
+      "shapes": {
+        "X": [
+          57340,
+          30
+        ],
+        "y": [
+          57340,
+          30
+        ],
+        "X_train": [
+          45872,
+          30
+        ],
+        "X_test": [
+          11468,
+          30
+        ],
+        "y_train": [
+          45872,
+          30
+        ],
+        "y_test": [
+          11468,
+          30
+        ]
+      }
+    },
+    "num_params": 6498870,
+    "train_time_sec": 331.8626765839981,
+    "best_val_accuracy": 0.9591953754425049,
+    "best_val_loss": 0.13872088491916656,
+    "epochs_ran": 6,
+    "history": {
+      "accuracy": [
+        0.7936221957206726,
+        0.9655329585075378,
+        0.9788687229156494,
+        0.9846026301383972,
+        0.9884739518165588,
+        0.9911791682243347
+      ],
+      "loss": [
+        0.8925181031227112,
+        0.12267941981554031,
+        0.06966952979564667,
+        0.05015943571925163,
+        0.03807831555604935,
+        0.029317015781998634
+      ],
+      "val_accuracy": [
+        0.9431650042533875,
+        0.9555162191390991,
+        0.9584518074989319,
+        0.9591953754425049,
+        0.9591420888900757,
+        0.9583443403244019
+      ],
+      "val_loss": [
+        0.2053426206111908,
+        0.14676402509212494,
+        0.13872088491916656,
+        0.1394597440958023,
+        0.14540767669677734,
+        0.1545121967792511
+      ]
+    },
+    "test_metrics": {
+      "token_accuracy": 0.9579353398936119,
+      "precision": 0.9573554779546473,
+      "recall": 0.9579353398936119,
+      "f1": 0.957306808229888,
+      "predict_batch_size_used": 32,
+      "predict_device": "gpu"
+    },
+    "model_path": "resources/models/brown_lstm_baseline.keras",
+    "model_saved": false
+  }
+]
