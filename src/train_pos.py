@@ -83,10 +83,7 @@ class TokenAndPositionEmbedding(layers.Layer):
         positions = self.pos_emb(positions)
         x = self.token_emb(x)
         return x + positions
-
-    def compute_mask(self, inputs, mask=None):
-        return self.token_emb.compute_mask(inputs)
-
+    
     def get_config(self):
         config = super().get_config()
         config.update({"maxlen": self.maxlen, "vocab_size": self.vocab_size, "embed_dim": self.embed_dim})
