@@ -36,6 +36,8 @@ def load_ud(split: str = "train", n: int | None = 1000) -> tuple[list[Sentence],
     label_names = feature.names
 
     split_data = dataset[split]
+    if n is not None:
+        n = min(n, len(split_data))
     items = split_data if n is None else split_data.select(range(n))
 
     preprocessed = []
