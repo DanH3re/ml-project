@@ -1,0 +1,11 @@
+====================================================================================================
+[1/5] Running config: group_A_baseline_family_comparison.json.json
+Output JSON: /home/dan-gavriluta/Coding/ml-project/resources/results/group_A_baseline_family_comparison.json/training_results.json
+Models dir : /home/dan-gavriluta/Coding/ml-project/resources/models/group_A_baseline_family_comparison.json
+Log file   : /home/dan-gavriluta/Coding/ml-project/resources/logs/group_A_baseline_family_comparison.json.log
+Command    : /usr/bin/python3.12 /home/dan-gavriluta/Coding/ml-project/src/train_pos.py --use-gpu amd --config /home/dan-gavriluta/Coding/ml-project/resources/configs/group_A_baseline_family_comparison.json.json --output /home/dan-gavriluta/Coding/ml-project/resources/results/group_A_baseline_family_comparison.json/training_results.json --models-dir /home/dan-gavriluta/Coding/ml-project/resources/models/group_A_baseline_family_comparison.json
+====================================================================================================
+Traceback (most recent call last):
+  File "/home/dan-gavriluta/Coding/ml-project/src/train_pos.py", line 11, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
