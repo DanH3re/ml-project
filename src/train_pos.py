@@ -112,11 +112,9 @@ class TransformerBlock(layers.Layer):
         self.supports_masking = True
 
     def call(self, inputs, training=False, mask=None):
-        attention_mask = None
-        if mask is not None:
-            # (batch, seq_len) → (batch, 1, 1, seq_len): broadcasts over all heads and query positions
-            attention_mask = mask[:, tf.newaxis, tf.newaxis, :]
-        attn_output = self.att(inputs, inputs, attention_mask=attention_mask)
+        # Keras auto-propagates query_mask/value_mask to MHA from the
+        # embedding's _keras_mask, so no explicit attention_mask needed.
+        attn_output = self.att(inputs, inputs)
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(inputs + attn_output)
         ffn_output = self.ffn(out1)
