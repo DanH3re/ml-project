@@ -157,5 +157,45 @@
     "early_stopping": true,
     "patience": 4,
     "validation_split": 0.2
+  },
+
+  {
+    "name": "B_transformer_medium_smax",
+    "group": "B_data_regime",
+    "hypothesis": "H4_transformer_scales_better_with_more_data",
+    "model_type": "transformer",
+    "sentences": "max",
+    "maxlen": 30,
+    "split_seed": 42,
+    "seed": 42,
+    "embed_dim": 256,
+    "num_heads": 8,
+    "ff_dim": 512,
+    "num_layers": 2,
+    "dropout": 0.1,
+    "lr": 0.001,
+    "epochs": 20,
+    "batch_size": 128,
+    "early_stopping": true,
+    "patience": 4,
+    "validation_split": 0.2
+  },
+  {
+    "name": "B_lstm_stronger_smax",
+    "group": "B_data_regime",
+    "hypothesis": "H4_transformer_scales_better_with_more_data",
+    "model_type": "lstm",
+    "sentences": "max",
+    "maxlen": 30,
+    "split_seed": 42,
+    "seed": 42,
+    "embed_dim": 256,
+    "lstm_units": 128,
+    "lr": 0.0005,
+    "epochs": 20,
+    "batch_size": 32,
+    "early_stopping": true,
+    "patience": 4,
+    "validation_split": 0.2
   }
 ]
