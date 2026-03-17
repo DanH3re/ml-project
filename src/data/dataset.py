@@ -30,13 +30,16 @@ def load_brown() -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
     return preprocessed, vocab, encoded
 
 
-def load_ud(split: str = "train", n: int = 1000) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
+def load_ud(split: str = "train", n: int | None = 1000) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
     dataset = load_dataset("universal_dependencies", "en_ewt")
     feature = dataset[split].features["upos"].feature
     label_names = feature.names
 
+    split_data = dataset[split]
+    items = split_data if n is None else split_data.select(range(n))
+
     preprocessed = []
-    for item in dataset[split].select(range(n)):
+    for item in items:
         tokens = preprocess_tokens(item["tokens"])
         tags = [label_names[i] for i in item["upos"]]
         preprocessed.append((tokens, tags))
