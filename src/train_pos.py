@@ -112,6 +112,23 @@ class TransformerBlock(layers.Layer):
         return self.layernorm2(out1 + ffn_output)
 
 
+class LinearWarmup(keras.optimizers.schedules.LearningRateSchedule):
+    """Linear warmup to peak_lr over warmup_steps, then constant."""
+
+    def __init__(self, peak_lr: float, warmup_steps: int):
+        super().__init__()
+        self.peak_lr = float(peak_lr)
+        self.warmup_steps = int(warmup_steps)
+
+    def __call__(self, step):
+        step = tf.cast(step, tf.float32)
+        warmup = tf.cast(self.warmup_steps, tf.float32)
+        return tf.minimum(self.peak_lr, self.peak_lr * step / tf.maximum(warmup, 1.0))
+
+    def get_config(self):
+        return {"peak_lr": self.peak_lr, "warmup_steps": self.warmup_steps}
+
+
 def build_model(model_type: str, config: dict[str, Any], use_gpu: str) -> keras.Model:
     inputs = layers.Input(shape=(config["maxlen"],), dtype="int32")
 
@@ -137,6 +154,10 @@ def build_model(model_type: str, config: dict[str, Any], use_gpu: str) -> keras.
             mask_zero=True,
         )(inputs)
 
+        dropout = config.get("dropout", 0.0)
+        if dropout > 0.0:
+            x = layers.Dropout(dropout)(x)
+
         lstm_kwargs = {
             "units": config.get("lstm_units", 64),
             "return_sequences": True,
@@ -146,14 +167,17 @@ def build_model(model_type: str, config: dict[str, Any], use_gpu: str) -> keras.
             lstm_kwargs["use_cudnn"] = False
             print("Using ROCm-safe LSTM configuration.")
 
-        x = layers.Bidirectional(layers.LSTM(**lstm_kwargs))(x)
+        for _ in range(config.get("lstm_layers", 1)):
+            x = layers.Bidirectional(layers.LSTM(**lstm_kwargs))(x)
     else:
         raise ValueError("model_type must be 'transformer' or 'lstm'")
 
     outputs = layers.Dense(config["num_tags"], activation="softmax")(x)
     model = keras.Model(inputs=inputs, outputs=outputs)
+    warmup_steps = config.get("lr_warmup_steps", 0)
+    lr = LinearWarmup(config["lr"], warmup_steps) if warmup_steps > 0 else config["lr"]
     model.compile(
-        optimizer=keras.optimizers.Adam(config["lr"]),
+        optimizer=keras.optimizers.Adam(lr),
         loss="sparse_categorical_crossentropy",
         metrics=["accuracy"],
     )
@@ -337,25 +361,28 @@ def slugify(name: str) -> str:
 
 
 def get_dataset_for_sentences(
-    sentences: int,
-    dataset_cache: dict[int, dict[str, Any]],
+    sentences: int | str,
+    dataset_cache: dict[int | str, dict[str, Any]],
 ) -> dict[str, Any]:
     if sentences not in dataset_cache:
-        print(f"\nLoading dataset for sentences={sentences} ...")
-        raw_data, vocab, encoded = load_ud(n=sentences)
+        n = None if sentences == "max" else int(sentences)
+        label = "all" if sentences == "max" else sentences
+        print(f"\nLoading dataset for sentences={label} ...")
+        raw_data, vocab, encoded = load_ud(n=n)
         dataset_cache[sentences] = {
             "raw_data": raw_data,
             "vocab": vocab,
             "encoded": encoded,
+            "actual_sentences": len(encoded),
         }
     return dataset_cache[sentences]
 
 
 def prepare_split_for_config(
     config: dict[str, Any],
-    dataset_cache: dict[int, dict[str, Any]],
+    dataset_cache: dict[int | str, dict[str, Any]],
 ) -> dict[str, Any]:
-    sentences = int(config["sentences"])
+    sentences = config["sentences"]  # int or "max"
     maxlen = int(config["maxlen"])
     split_seed = int(config["split_seed"])
 
@@ -374,6 +401,7 @@ def prepare_split_for_config(
         "raw_data": raw_data,
         "vocab": vocab,
         "encoded": encoded,
+        "actual_sentences": ds["actual_sentences"],
         "X": X,
         "y": y,
         "X_train": X_train,
@@ -398,7 +426,7 @@ def train_one_config(
     config: dict[str, Any],
     use_gpu: str,
     models_dir: Path,
-    dataset_cache: dict[int, dict[str, Any]],
+    dataset_cache: dict[int | str, dict[str, Any]],
 ) -> dict[str, Any]:
     name = config.get("name", f"{config['model_type']}_run")
     run_seed = int(config.get("seed", config.get("split_seed", 42)))
@@ -469,7 +497,8 @@ def train_one_config(
         "model_type": config["model_type"],
         "config": make_json_safe(config),
         "dataset_meta": {
-            "sentences": int(config["sentences"]),
+            "sentences": int(prepared["actual_sentences"]),
+            "sentences_config": config["sentences"],
             "maxlen": int(config["maxlen"]),
             "split_seed": int(config["split_seed"]),
             "seed": int(run_seed),
@@ -523,7 +552,10 @@ def main() -> None:
     configs = load_configs(args.config, args.max_len, args.sentences, args.seed)
 
     print(f"\nLoaded {len(configs)} config(s).")
-    unique_sentences = sorted({int(cfg["sentences"]) for cfg in configs})
+    unique_sentences = sorted(
+        {cfg["sentences"] for cfg in configs},
+        key=lambda x: float("inf") if x == "max" else x,
+    )
     unique_maxlens = sorted({int(cfg["maxlen"]) for cfg in configs})
     unique_split_seeds = sorted({int(cfg["split_seed"]) for cfg in configs})
     unique_run_seeds = sorted({int(cfg["seed"]) for cfg in configs})
@@ -535,7 +567,7 @@ def main() -> None:
 
     results = []
     models_dir = Path(args.models_dir)
-    dataset_cache: dict[int, dict[str, Any]] = {}
+    dataset_cache: dict[int | str, dict[str, Any]] = {}
 
     for cfg in configs:
         result = train_one_config(
