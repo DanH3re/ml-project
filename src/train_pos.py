@@ -19,14 +19,10 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 from data.dataset import load_dataset_by_name
 
-SAVE_MODELS = False
-
-
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
-
 
 def configure_runtime(use_gpu: str) -> None:
     if use_gpu not in {"amd", "nvidia", "none"}:
@@ -54,14 +50,12 @@ def configure_runtime(use_gpu: str) -> None:
     print("Physical GPUs:", tf.config.list_physical_devices("GPU"))
     print("Logical devices:", tf.config.list_logical_devices())
 
-
 def prepare_for_keras(encoded_list, maxlen: int) -> tuple[np.ndarray, np.ndarray]:
     word_ids = [e.word_ids for e in encoded_list]
     tag_ids = [e.tag_ids for e in encoded_list]
     X = pad_sequences(word_ids, maxlen=maxlen, padding="post", value=0)
     y = pad_sequences(tag_ids, maxlen=maxlen, padding="post", value=0)
     return np.array(X), np.array(y)
-
 
 class TokenAndPositionEmbedding(layers.Layer):
     def __init__(self, maxlen: int, vocab_size: int, embed_dim: int):
@@ -88,7 +82,6 @@ class TokenAndPositionEmbedding(layers.Layer):
         config = super().get_config()
         config.update({"maxlen": self.maxlen, "vocab_size": self.vocab_size, "embed_dim": self.embed_dim})
         return config
-
 
 class TransformerBlock(layers.Layer):
     def __init__(self, embed_dim: int, num_heads: int, ff_dim: int, rate: float = 0.1):
@@ -126,7 +119,6 @@ class TransformerBlock(layers.Layer):
         config.update({"embed_dim": self.embed_dim, "num_heads": self.num_heads, "ff_dim": self.ff_dim, "rate": self.rate})
         return config
 
-
 class LinearWarmup(keras.optimizers.schedules.LearningRateSchedule):
     """Linear warmup to peak_lr over warmup_steps, then constant."""
 
@@ -142,7 +134,6 @@ class LinearWarmup(keras.optimizers.schedules.LearningRateSchedule):
 
     def get_config(self):
         return {"peak_lr": self.peak_lr, "warmup_steps": self.warmup_steps}
-
 
 def build_model(model_type: str, config: dict[str, Any], use_gpu: str) -> keras.Model:
     inputs = layers.Input(shape=(config["maxlen"],), dtype="int32")
@@ -295,7 +286,6 @@ def evaluate_model(
 
     raise last_error
 
-
 def make_json_safe(obj: Any) -> Any:
     if isinstance(obj, dict):
         return {str(k): make_json_safe(v) for k, v in obj.items()}
@@ -312,7 +302,6 @@ def make_json_safe(obj: Any) -> Any:
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     return obj
-
 
 def default_configs(max_len: int, sentences: int, seed: int) -> list[dict[str, Any]]:
     return [
@@ -347,7 +336,6 @@ def default_configs(max_len: int, sentences: int, seed: int) -> list[dict[str, A
         },
     ]
 
-
 def load_configs(config_path: str | None, max_len: int, sentences: int, seed: int) -> list[dict[str, Any]]:
     if config_path is None:
         return default_configs(max_len, sentences, seed)
@@ -370,10 +358,8 @@ def load_configs(config_path: str | None, max_len: int, sentences: int, seed: in
 
     return configs
 
-
 def slugify(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]+", "_", name).strip("_")
-
 
 def get_dataset_for_sentences(
     sentences: int | str,
@@ -439,12 +425,12 @@ def prepare_split_for_config(
     }
     return prepared
 
-
 def train_one_config(
     config: dict[str, Any],
     use_gpu: str,
     models_dir: Path,
     dataset_cache: dict[tuple[str, int | str], dict[str, Any]],
+    save_models: bool = True,
 ) -> dict[str, Any]:
     name = config.get("name", f"{config['model_type']}_run")
     run_seed = int(config.get("seed", config.get("split_seed", 42)))
@@ -468,9 +454,12 @@ def train_one_config(
     print(json.dumps(make_json_safe(prepared["dataset_shape"]), indent=2))
     print("=" * 80)
 
-    keras.backend.clear_session()
-    model = build_model(config["model_type"], config, use_gpu)
-    model.summary()
+    # Prepare batch sizes to try in case of OOM
+    original_batch_size = config.get("batch_size", 32)
+    batch_sizes_to_try = []
+    for bs in [original_batch_size, 16, 8, 4, 2, 1]:
+        if bs not in batch_sizes_to_try:
+            batch_sizes_to_try.append(bs)
 
     callbacks: list[keras.callbacks.Callback] = []
     if config.get("early_stopping", True):
@@ -482,17 +471,82 @@ def train_one_config(
             )
         )
 
-    start = time.perf_counter()
-    history = model.fit(
-        X_train,
-        y_train,
-        batch_size=config.get("batch_size", 32),
-        epochs=config["epochs"],
-        validation_split=config.get("validation_split", 0.2),
-        verbose=1,
-        callbacks=callbacks,
-    )
-    train_time_sec = time.perf_counter() - start
+    history = None
+    train_time_sec = 0.0
+    train_batch_size_used = original_batch_size
+    train_device_used = "default"
+
+    # Try training with progressively smaller batch sizes if OOM occurs
+    for bs in batch_sizes_to_try:
+        try:
+            print(f"Training with batch_size={bs}")
+            keras.backend.clear_session()
+            model = build_model(config["model_type"], config, use_gpu)
+            if bs == original_batch_size:
+                model.summary()
+
+            start = time.perf_counter()
+            history = model.fit(
+                X_train,
+                y_train,
+                batch_size=bs,
+                epochs=config["epochs"],
+                validation_split=config.get("validation_split", 0.2),
+                verbose=1,
+                callbacks=callbacks,
+            )
+            train_time_sec = time.perf_counter() - start
+            train_batch_size_used = bs
+            train_device_used = "default"
+            print(f"Training succeeded with batch_size={bs}")
+            break
+
+        except tf.errors.ResourceExhaustedError as e:
+            print(f"Training failed with batch_size={bs}: OOM. Retrying with smaller batch size...")
+            keras.backend.clear_session()
+            if bs == 1:
+                print("All batch sizes exhausted on default device. Trying CPU fallback...")
+                break
+
+    # If training failed on all batch sizes, try CPU fallback
+    if history is None:
+        print("\n" + "=" * 80)
+        print("Attempting CPU fallback for training...")
+        print("=" * 80)
+
+        for bs in batch_sizes_to_try:
+            try:
+                keras.backend.clear_session()
+                with tf.device("/CPU:0"):
+                    print(f"Training on CPU with batch_size={bs}")
+                    cpu_model = build_model(config["model_type"], config, "none")
+
+                    start = time.perf_counter()
+                    history = cpu_model.fit(
+                        X_train,
+                        y_train,
+                        batch_size=bs,
+                        epochs=config["epochs"],
+                        validation_split=config.get("validation_split", 0.2),
+                        verbose=1,
+                        callbacks=callbacks,
+                    )
+                    train_time_sec = time.perf_counter() - start
+                    train_batch_size_used = bs
+                    train_device_used = "cpu"
+                    model = cpu_model
+                    print(f"CPU training succeeded with batch_size={bs}")
+                    break
+
+            except tf.errors.ResourceExhaustedError as e:
+                print(f"CPU training also failed with batch_size={bs}: OOM")
+                keras.backend.clear_session()
+                if bs == 1:
+                    print("Training failed even on CPU with batch_size=1. Cannot proceed.")
+                    raise RuntimeError("Training failed on both default device and CPU fallback")
+
+    if history is None:
+        raise RuntimeError("Training failed - no successful history recorded")
 
     metrics = evaluate_model(
         model,
@@ -507,7 +561,7 @@ def train_one_config(
     models_dir.mkdir(parents=True, exist_ok=True)
     model_path = models_dir / f"{slugify(name)}.keras"
 
-    if SAVE_MODELS:
+    if save_models:
         model.save(model_path)
 
     result = {
@@ -527,23 +581,24 @@ def train_one_config(
         },
         "num_params": int(model.count_params()),
         "train_time_sec": float(train_time_sec),
+        "train_batch_size_used": int(train_batch_size_used),
+        "train_device_used": str(train_device_used),
         "best_val_accuracy": float(max(history.history.get("val_accuracy", [0.0]))),
         "best_val_loss": float(min(history.history.get("val_loss", [float("inf")]))),
         "epochs_ran": int(len(history.history.get("loss", []))),
         "history": make_json_safe(history.history),
         "test_metrics": metrics,
         "model_path": str(model_path),
-        "model_saved": bool(SAVE_MODELS),
+        "model_saved": bool(save_models),
     }
 
     print("\nTest metrics:")
     print(json.dumps(result["test_metrics"], indent=2))
-    if SAVE_MODELS:
+    if save_models:
         print(f"Saved model to: {model_path}")
     else:
         print(f"Model saving disabled. Would save to: {model_path}")
     return result
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train POS tagging models.")
@@ -559,11 +614,8 @@ def main() -> None:
     )
     parser.add_argument("--output", type=str, default="resources/results/training_results.json")
     parser.add_argument("--models-dir", type=str, default="resources/models")
-    parser.add_argument("--save-models", action="store_true", help="Actually save .keras model files")
+    parser.add_argument("--save-models", type=bool, default=True, help="Actually save .keras model files")
     args = parser.parse_args()
-
-    global SAVE_MODELS
-    SAVE_MODELS = args.save_models
 
     set_seed(args.seed)
     configure_runtime(args.use_gpu)
@@ -594,6 +646,7 @@ def main() -> None:
             args.use_gpu,
             models_dir,
             dataset_cache,
+            args.save_models,
         )
         results.append(result)
 
@@ -603,7 +656,6 @@ def main() -> None:
         json.dump(make_json_safe(results), f, indent=2)
 
     print(f"\nSaved results to: {output_path}")
-
 
 if __name__ == "__main__":
     main()
