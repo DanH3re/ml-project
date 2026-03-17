@@ -4,7 +4,13 @@ Quick test script to verify all datasets load correctly.
 This helps catch issues before running full training experiments.
 """
 
-from data.dataset import load_dataset_by_name
+import sys
+from pathlib import Path
+
+# Add src to path so imports work from scripts
+sys.path.insert(0, str(Path(__file__).parent))
+
+from data import load_dataset_by_name
 
 
 def test_dataset(name: str, n: int = 10) -> None:
