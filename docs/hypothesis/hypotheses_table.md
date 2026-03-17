@@ -15,7 +15,17 @@ Generated: 2026-03-17
 | F | H11_warmup_improves_transformer | Linear LR warmup should stabilise Transformer training and improve final accuracy; LSTM is largely unaffected because it converges more smoothly from step one. | resources/configs/group_F_lr_warmup.json |
 | G | H12_depth_helps_architecture | Adding more layers (depth) helps both families, but the effect is stronger for transformers. | resources/configs/group_G_architecture_depth.json |
 
-## Notes
+NEW!!!
 
-- Hypothesis IDs come from the `hypothesis` field in each config JSON.
-- Description text is taken from the Group A-G markdown sections in src/pos_hypothesis_explorer.ipynb.
+## H1: Transformers prefer lower learning rates and scale better with data
+
+**Hypothesis:** Transformers achieve their best performance at lower learning rates than LSTMs. As training data size increases, Transformers significantly outperform LSTMs, even at learning rates that hurt LSTM performance.
+
+**Key comparisons:**
+- **Group B (Data Regime)**: Transformer vs LSTM performance as sentence count increases (500 → 2000 → 5000 → 12543)
+- **Group D (Learning Rate Sensitivity)**: F1 scores across learning rates (1e-4 to 1e-2) for both architectures
+
+**Expected pattern:**
+- LSTM peaks at higher learning rates; Transformer peaks at lower learning rates
+- Transformer's advantage grows with more training data
+- At high data regimes (10K+ sentences), Transformer should substantially outperform LSTM

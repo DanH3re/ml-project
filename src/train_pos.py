@@ -554,7 +554,7 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=str,
-        default="src/training_config.json",
+        default=None,
         help="Path to JSON config or config list",
     )
     parser.add_argument("--output", type=str, default="resources/results/training_results.json")
