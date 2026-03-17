@@ -114,14 +114,17 @@ class TransformerBlock(layers.Layer):
     def call(self, inputs, training=False, mask=None):
         attention_mask = None
         if mask is not None:
-            # mask: (batch, seq_len) → (batch, 1, seq_len) to mask padding keys
-            attention_mask = mask[:, tf.newaxis, :]
+            # (batch, seq_len) → (batch, 1, 1, seq_len): broadcasts over all heads and query positions
+            attention_mask = mask[:, tf.newaxis, tf.newaxis, :]
         attn_output = self.att(inputs, inputs, attention_mask=attention_mask)
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(inputs + attn_output)
         ffn_output = self.ffn(out1)
         ffn_output = self.dropout2(ffn_output, training=training)
         return self.layernorm2(out1 + ffn_output)
+
+    def compute_mask(self, inputs, mask=None):
+        return mask  # pass-through so every stacked block receives the padding mask
 
     def get_config(self):
         config = super().get_config()
