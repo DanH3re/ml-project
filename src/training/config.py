@@ -124,6 +124,13 @@ def _apply_defaults(configs: list[dict[str, Any]]) -> None:
                     f"Config '{cfg.get('name', '<unnamed>')}' has invalid 'pick_best_from'. "
                     "Expected string or list of strings."
                 )
+        pick_best_count = cfg.get("pick_best_count", 1)
+        if isinstance(pick_best_count, bool) or not isinstance(pick_best_count, int) or pick_best_count < 1:
+            raise ValueError(
+                f"Config '{cfg.get('name', '<unnamed>')}' has invalid 'pick_best_count'. "
+                "Expected integer >= 1."
+            )
+        cfg["pick_best_count"] = int(pick_best_count)
 
         runs_count = _normalize_runs_count(cfg.get("runs-count", cfg.get("run_count", DEFAULT_RUNS_COUNT)))
         cfg["runs-count"] = runs_count
@@ -331,6 +338,7 @@ DEFAULT_PRIORITY = 100
 NON_SWEEP_KEYS = {
     "priority",
     "pick_best_from",
+    "pick_best_count",
     "runs-count",
     "run_count",
     "stage_id",
