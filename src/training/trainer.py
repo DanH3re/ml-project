@@ -34,6 +34,7 @@ def train_one_config(
     set_seed(run_seed)
 
     config = dict(config)
+    config.pop("group", None)
     config["seed"] = run_seed
 
     # Prepare data
@@ -143,6 +144,7 @@ def _try_train_on_device(
 ) -> tuple[keras.Model, keras.callbacks.History, dict[str, Any]] | None:
     """Try training with progressively smaller batch sizes on a device."""
     original_batch_size = batch_sizes[0]
+    fit_verbose = _resolve_fit_verbose(config)
 
     for bs in batch_sizes:
         try:
@@ -163,7 +165,7 @@ def _try_train_on_device(
                     batch_size=bs,
                     epochs=config["epochs"],
                     validation_split=config.get("validation_split", 0.2),
-                    verbose=1,
+                    verbose=fit_verbose,
                     callbacks=callbacks,
                 )
                 train_time_sec = time.perf_counter() - start
@@ -183,6 +185,22 @@ def _try_train_on_device(
             keras.backend.clear_session()
 
     return None
+
+
+def _resolve_fit_verbose(config: dict[str, Any]) -> int:
+    """Resolve Keras fit verbosity (0=silent, 1=progress bar, 2=one line/epoch)."""
+    raw = config.get("fit_verbose", 2)
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ValueError(
+            f"Config '{config.get('name', '<unnamed>')}' has invalid fit_verbose={raw}. "
+            "Expected integer 0, 1, or 2."
+        )
+    if raw not in {0, 1, 2}:
+        raise ValueError(
+            f"Config '{config.get('name', '<unnamed>')}' has invalid fit_verbose={raw}. "
+            "Expected integer 0, 1, or 2."
+        )
+    return int(raw)
 
 
 def _get_batch_sizes_to_try(initial_batch_size: int) -> list[int]:
