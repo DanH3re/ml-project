@@ -16,6 +16,10 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from training import (
+    _DependencyResolver,
+    _expand_pick_best_dependencies,
+)
 
 # Add src to path so imports work from scripts
 sys.path.insert(0, str(Path(__file__).parent))
@@ -122,10 +126,12 @@ def run_training(args: argparse.Namespace) -> list[dict]:
     # Load configs
     configs = load_configs(args.config)
     resolver = _DependencyResolver(results_root=_resolve_results_root(args.output, args.config))
-    configs = [_resolve_pick_best_dependencies(cfg, resolver) for cfg in configs]
+    configs = _expand_pick_best_dependencies(configs, resolver)
     configs = [_resolve_derived_params(cfg) for cfg in configs]
     print_config_summary(configs)
     print(f"Default run count (--run-count): {default_run_count}")
+    total_planned_runs = sum(_resolve_cfg_run_count(cfg, default_run_count) for cfg in configs)
+    print(f"Total scheduled model runs: {total_planned_runs}")
 
     # Train models; each run is a standalone result row.
     if args.skip_existing_models:
@@ -185,127 +191,12 @@ def run_training(args: argparse.Namespace) -> list[dict]:
     return results
 
 
-NON_INHERITED_KEYS = {
-    "name",
-    "group",
-    "hypothesis",
-    "stage_id",
-    "priority",
-    "pick_best_from",
-    "runs-count",
-    "run_count",
-    "seed",
-    "vocab_size",
-    "num_tags",
-}
+
 
 
 _MULTIPLE_EXPR = re.compile(
     r"^\s*(?P<factor>[0-9]+(?:\.[0-9]+)?)\s*x\s*(?P<ref>[A-Za-z_][A-Za-z0-9_]*)\s*$"
 )
-
-
-def _normalize_pick_best_refs(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        text = value.strip()
-        return [text] if text else []
-    if isinstance(value, list):
-        out: list[str] = []
-        for item in value:
-            if isinstance(item, str):
-                text = item.strip()
-                if text:
-                    out.append(text)
-        return out
-    return []
-
-
-def _cfg_identifiers(cfg: dict[str, Any]) -> list[str]:
-    ids: list[str] = []
-    for key in ("stage_id", "hypothesis", "name"):
-        value = cfg.get(key)
-        if isinstance(value, str):
-            normalized = value.strip()
-            if normalized and normalized not in ids:
-                ids.append(normalized)
-    return ids
-
-
-def _result_score(result: dict[str, Any]) -> tuple[float, float]:
-    val_acc = float(result.get("best_val_accuracy", float("-inf")))
-    val_loss = float(result.get("best_val_loss", float("inf")))
-    return (val_acc, -val_loss)
-
-
-class _DependencyResolver:
-    """Resolve pick_best_from references using best prior run results."""
-
-    def __init__(self, results_root: Path) -> None:
-        self.results_root = results_root
-        self._best_by_ref: dict[str, tuple[tuple[float, float, float], dict[str, Any]]] = {}
-        self._loaded_disk = False
-
-    def _ensure_loaded(self) -> None:
-        if self._loaded_disk:
-            return
-        self._loaded_disk = True
-        if not self.results_root.exists():
-            return
-
-        for path in self.results_root.rglob("*.json"):
-            if path.name == "summary.json":
-                continue
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    result = json.load(f)
-            except Exception:
-                continue
-            self.record_result(result)
-
-    def record_result(self, result: dict[str, Any]) -> None:
-        cfg = result.get("config")
-        if not isinstance(cfg, dict):
-            return
-
-        score = _result_score(result)
-        for ref in _cfg_identifiers(cfg):
-            current = self._best_by_ref.get(ref)
-            if current is None or score > current[0]:
-                self._best_by_ref[ref] = (score, cfg)
-
-    def resolve(self, ref: str) -> dict[str, Any] | None:
-        self._ensure_loaded()
-        best = self._best_by_ref.get(ref)
-        return None if best is None else dict(best[1])
-
-
-def _resolve_pick_best_dependencies(
-    cfg: dict[str, Any],
-    resolver: _DependencyResolver,
-) -> dict[str, Any]:
-    refs = _normalize_pick_best_refs(cfg.get("pick_best_from"))
-    if not refs:
-        return cfg
-
-    merged = dict(cfg)
-    for ref in refs:
-        source = resolver.resolve(ref)
-        if source is None:
-            raise ValueError(
-                f"Could not resolve pick_best_from='{ref}'. "
-                f"No prior results found under {resolver.results_root}."
-            )
-
-        for key, value in source.items():
-            if key in NON_INHERITED_KEYS:
-                continue
-            if key not in merged:
-                merged[key] = value
-
-    return merged
-
 
 def _resolve_derived_params(cfg: dict[str, Any]) -> dict[str, Any]:
     """Resolve expressions like ff_dim='2xembed_dim' after inheritance."""
