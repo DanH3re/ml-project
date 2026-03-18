@@ -222,7 +222,7 @@ def _build_result(
         "model_type": config["model_type"],
         "config": make_json_safe(config),
         "dataset_meta": {
-            "dataset": config.get("dataset", "ud"),
+            "dataset": config.get("dataset", "brown"),
             "sentences": int(prepared["actual_sentences"]),
             "sentences_config": config["sentences"],
             "maxlen": int(config["maxlen"]),
