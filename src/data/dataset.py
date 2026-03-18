@@ -4,7 +4,7 @@ from typing import Any
 
 import nltk
 from nltk.corpus import brown
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets
 import numpy as np
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -17,14 +17,57 @@ from .vocabulary import (
     Vocabulary,
     Encoding,
 )
+def _select_indices(
+    total: int,
+    n: int,
+    sampling: str,
+    rng: np.random.Generator,
+    dataset_name: str,
+    split: str | None = None,
+) -> np.ndarray:
+    """Select sentence indices.
+
+    Behavior:
+      - If n <= total: return first n indices (deterministic order).
+      - If n > total: resample with replacement and warn.
+    """
+    if sampling not in {"head", "random"}:
+        raise ValueError("sampling must be one of: 'head', 'random'")
+
+    if n <= total:
+        raise ValueError("_select_indices is only intended for overflow resampling")
+
+    split_label = f" split='{split}'" if split is not None else ""
+    print(
+        f"WARNING: requested n={n} for {dataset_name}{split_label}, "
+        f"but maximum available is {total}. "
+        "Applying random resampling with replacement."
+    )
+    return rng.choice(total, size=n, replace=True)
 
 
-def load_brown(n: int | None = None) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
+def load_brown(
+    n: int | None = None,
+    sampling: str = "head",
+    sampling_seed: int | None = None,
+) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
     nltk.download("brown", quiet=True)
     sentences = brown.tagged_sents()
 
     if n is not None:
-        sentences = sentences[:n]
+        n = int(n)
+        if n <= len(sentences):
+            sentences = sentences[:n]
+        else:
+            rng = np.random.default_rng(sampling_seed)
+            idx = _select_indices(
+                total=len(sentences),
+                n=n,
+                sampling=sampling,
+                rng=rng,
+                dataset_name="brown",
+            )
+            sentences = [sentences[int(i)] for i in idx]
 
     preprocessed = []
     for sent in sentences:
@@ -38,105 +81,41 @@ def load_brown(n: int | None = None) -> tuple[list[Sentence], Vocabulary, list[E
     return preprocessed, vocab, encoded
 
 
-def load_ud(split: str = "train", n: int | None = 1000) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
+def load_ud(
+    split: str = "train",
+    n: int | None = 1000,
+    sampling: str = "head",
+    sampling_seed: int | None = None,
+) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
     dataset = load_dataset("universal_dependencies", "en_ewt")
-    feature = dataset[split].features["upos"].feature
+    feature = dataset["train"].features["upos"].feature
     label_names = feature.names
 
-    split_data = dataset[split]
+    if split != "train":
+        # Kept for backward compatibility; split selection is now app-level only.
+        print(
+            f"WARNING: split='{split}' was provided for UD, but loader now uses the full dataset. "
+            "Ignoring split and loading train+validation+test."
+        )
+
+    split_data = concatenate_datasets([dataset["train"], dataset["validation"], dataset["test"]])
     if n is not None:
-        n = min(n, len(split_data))
-    items = split_data if n is None else split_data.select(range(n))
-
-    preprocessed = []
-    for item in items:
-        tokens = preprocess_tokens(item["tokens"])
-        tags = [label_names[i] for i in item["upos"]]
-        preprocessed.append((tokens, tags))
-
-    vocab = build_vocab(preprocessed)
-    encoded = [vocab.encode(tokens, tags) for tokens, tags in preprocessed]
-    return preprocessed, vocab, encoded
-
-
-def load_conll2003(split: str = "train", n: int | None = 1000) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
-    """Load CoNLL-2003 dataset (primarily for NER, but has POS tags too)."""
-    dataset = load_dataset("conll2003")
-
-    split_data = dataset[split]
-    if n is not None:
-        n = min(n, len(split_data))
-    items = split_data if n is None else split_data.select(range(n))
-
-    preprocessed = []
-    for item in items:
-        tokens = preprocess_tokens(item["tokens"])
-        tags = [str(tag) for tag in item["pos_tags"]]
-        preprocessed.append((tokens, tags))
-
-    vocab = build_vocab(preprocessed)
-    encoded = [vocab.encode(tokens, tags) for tokens, tags in preprocessed]
-    return preprocessed, vocab, encoded
-
-
-def load_ptb(n: int | None = 1000) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
-    """Load Penn Treebank via NLTK (requires treebank corpus)."""
-    try:
-        nltk.download("treebank", quiet=True)
-        from nltk.corpus import treebank
-
-        sentences = treebank.tagged_sents()
-        if n is not None:
-            sentences = sentences[:n]
-
-        preprocessed = []
-        for sent in sentences:
-            tokens, tags = zip(*sent)
-            tokens = preprocess_tokens(tokens)
-            tags = preprocess_tags(tags)
-            preprocessed.append((tokens, tags))
-
-        vocab = build_vocab(preprocessed)
-        encoded = [vocab.encode(tokens, tags) for tokens, tags in preprocessed]
-        return preprocessed, vocab, encoded
-    except Exception as e:
-        raise RuntimeError(f"Failed to load Penn Treebank: {e}")
-
-
-def load_gum(split: str = "train", n: int | None = 1000) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
-    """Load GUM (Georgetown University Multilayer) corpus from Universal Dependencies."""
-    dataset = load_dataset("universal_dependencies", "en_gum")
-    feature = dataset[split].features["upos"].feature
-    label_names = feature.names
-
-    split_data = dataset[split]
-    if n is not None:
-        n = min(n, len(split_data))
-    items = split_data if n is None else split_data.select(range(n))
-
-    preprocessed = []
-    for item in items:
-        tokens = preprocess_tokens(item["tokens"])
-        tags = [label_names[i] for i in item["upos"]]
-        preprocessed.append((tokens, tags))
-
-    vocab = build_vocab(preprocessed)
-    encoded = [vocab.encode(tokens, tags) for tokens, tags in preprocessed]
-    return preprocessed, vocab, encoded
-
-
-def load_tweets(split: str = "train", n: int | None = 1000) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
-    """Load English Tweets from Universal Dependencies (Tweebank)."""
-    dataset = load_dataset("universal_dependencies", "en_ewt")  # Using en_ewt as fallback
-    # Note: For actual Tweebank, you would use "en_tweet" or similar
-    # This is a placeholder - update with actual tweet corpus when available
-    feature = dataset[split].features["upos"].feature
-    label_names = feature.names
-
-    split_data = dataset[split]
-    if n is not None:
-        n = min(n, len(split_data))
-    items = split_data if n is None else split_data.select(range(n))
+        n = int(n)
+        if n <= len(split_data):
+            items = split_data.select(range(n))
+        else:
+            rng = np.random.default_rng(sampling_seed)
+            idx = _select_indices(
+                total=len(split_data),
+                n=n,
+                sampling=sampling,
+                rng=rng,
+                dataset_name="ud",
+                split="all",
+            )
+            items = split_data.select(idx.tolist())
+    else:
+        items = split_data
 
     preprocessed = []
     for item in items:
@@ -152,26 +131,26 @@ def load_tweets(split: str = "train", n: int | None = 1000) -> tuple[list[Senten
 def load_dataset_by_name(
     dataset_name: str,
     split: str = "train",
-    n: int | None = 1000
+    n: int | None = 1000,
+    sampling: str = "head",
+    sampling_seed: int | None = None,
 ) -> tuple[list[Sentence], Vocabulary, list[Encoding]]:
     """
     Load a dataset by name.
 
     Args:
-        dataset_name: One of 'ud', 'brown', 'conll2003', 'ptb', 'gum', 'tweets'
-        split: Dataset split (train/validation/test). Only used for datasets that have splits.
+        dataset_name: One of 'ud', 'brown'
+        split: Backward-compatible parameter. UD now ignores this and always loads full data.
         n: Number of sentences to load. None = all sentences.
+        sampling: One of 'head' or 'random'.
+        sampling_seed: RNG seed used for random sampling/resampling.
 
     Returns:
         (preprocessed_sentences, vocabulary, encoded_data)
     """
     loaders = {
-        "ud": lambda: load_ud(split=split, n=n),
-        "brown": lambda: load_brown(n=n),
-        "conll2003": lambda: load_conll2003(split=split, n=n),
-        "ptb": lambda: load_ptb(n=n),
-        "gum": lambda: load_gum(split=split, n=n),
-        "tweets": lambda: load_tweets(split=split, n=n),
+        "ud": lambda: load_ud(split=split, n=n, sampling=sampling, sampling_seed=sampling_seed),
+        "brown": lambda: load_brown(n=n, sampling=sampling, sampling_seed=sampling_seed),
     }
 
     if dataset_name not in loaders:
@@ -185,24 +164,43 @@ class DatasetCache:
     """Cache for loaded datasets to avoid redundant loading."""
 
     def __init__(self):
-        self._cache: dict[tuple[str, int | str], dict[str, Any]] = {}
+        self._cache: dict[tuple[str, int, str, int | None], dict[str, Any]] = {}
 
-    def get(self, dataset_name: str, sentences: int | str) -> dict[str, Any]:
+    def get(
+        self,
+        dataset_name: str,
+        sentences: int,
+        sampling: str = "head",
+        sampling_seed: int | None = None,
+    ) -> dict[str, Any]:
         """Get or load a dataset."""
-        cache_key = (dataset_name, sentences)
+        cache_key = (dataset_name, sentences, sampling, sampling_seed)
 
         if cache_key not in self._cache:
-            self._cache[cache_key] = self._load(dataset_name, sentences)
+            self._cache[cache_key] = self._load(dataset_name, sentences, sampling, sampling_seed)
 
         return self._cache[cache_key]
 
-    def _load(self, dataset_name: str, sentences: int | str) -> dict[str, Any]:
+    def _load(
+        self,
+        dataset_name: str,
+        sentences: int,
+        sampling: str,
+        sampling_seed: int | None,
+    ) -> dict[str, Any]:
         """Load a dataset from source."""
-        n = None if sentences == "max" else int(sentences)
-        label = "all" if sentences == "max" else sentences
-        print(f"\nLoading dataset={dataset_name}, sentences={label} ...")
+        n = int(sentences)
+        print(
+            f"\nLoading dataset={dataset_name}, sentences={sentences}, "
+            f"sampling={sampling} ..."
+        )
 
-        raw_data, vocab, encoded = load_dataset_by_name(dataset_name, n=n)
+        raw_data, vocab, encoded = load_dataset_by_name(
+            dataset_name,
+            n=n,
+            sampling=sampling,
+            sampling_seed=sampling_seed,
+        )
 
         return {
             "raw_data": raw_data,
@@ -226,12 +224,37 @@ def prepare_split_for_config(
     dataset_cache: DatasetCache,
 ) -> dict[str, Any]:
     """Prepare train/test split for a given configuration."""
-    sentences = config["sentences"]
+    raw_sentences = config["sentences"]
+    if isinstance(raw_sentences, bool) or not isinstance(raw_sentences, int):
+        raise ValueError(
+            f"Config '{config.get('name', '<unnamed>')}' has invalid 'sentences' value. "
+            "Only positive integers are supported."
+        )
+    if raw_sentences <= 0:
+        raise ValueError(
+            f"Config '{config.get('name', '<unnamed>')}' has invalid 'sentences' value. "
+            "'sentences' must be > 0."
+        )
+
+    sentences = int(raw_sentences)
     dataset_name = config.get("dataset", "ud")
     maxlen = int(config["maxlen"])
     split_seed = int(config["split_seed"])
+    sampling = str(config.get("sentence_sampling", "head")).strip().lower()
+    sampling_seed = int(config.get("sentence_sampling_seed", config.get("seed", split_seed)))
 
-    ds = dataset_cache.get(dataset_name, sentences)
+    if sampling not in {"head", "random"}:
+        raise ValueError(
+            f"Config '{config.get('name', '<unnamed>')}' has invalid sentence_sampling='{sampling}'. "
+            "Supported values: 'head', 'random'."
+        )
+
+    ds = dataset_cache.get(
+        dataset_name,
+        sentences,
+        sampling=sampling,
+        sampling_seed=sampling_seed,
+    )
 
     X, y = prepare_for_keras(ds["encoded"], maxlen)
     X_train, X_test, y_train, y_test = train_test_split(
