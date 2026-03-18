@@ -8,11 +8,7 @@ Modules:
 from .dataset import (
     DatasetCache,
     load_brown,
-    load_conll2003,
     load_dataset_by_name,
-    load_gum,
-    load_ptb,
-    load_tweets,
     load_ud,
     prepare_for_keras,
     prepare_split_for_config,
@@ -29,11 +25,7 @@ from .vocabulary import (
 __all__ = [
     # Dataset loading functions
     "load_brown",
-    "load_conll2003",
     "load_dataset_by_name",
-    "load_gum",
-    "load_ptb",
-    "load_tweets",
     "load_ud",
     # Dataset preparation
     "DatasetCache",
