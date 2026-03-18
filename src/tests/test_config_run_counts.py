@@ -39,6 +39,26 @@ def _find_default_config_paths() -> list[str]:
     ]
 
 
+def _pick_best_multiplier(cfg: dict) -> int:
+    refs = cfg.get("pick_best_from")
+    if refs is None:
+        return 1
+    if isinstance(refs, str):
+        ref_count = 1 if refs.strip() else 0
+    elif isinstance(refs, list):
+        ref_count = sum(1 for item in refs if isinstance(item, str) and item.strip())
+    else:
+        ref_count = 0
+
+    if ref_count == 0:
+        return 1
+
+    raw = cfg.get("pick_best_count", 1)
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        raise ValueError(f"invalid pick_best_count={raw}")
+    return int(raw) ** ref_count
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Print number of expanded runs for config file(s).",
@@ -71,7 +91,10 @@ def main() -> int:
 
         try:
             configs = config_mod.load_configs(str(resolved))
-            actual_runs = sum(int(cfg.get("runs-count", 1)) for cfg in configs)
+            actual_runs = sum(
+                int(cfg.get("runs-count", 1)) * _pick_best_multiplier(cfg)
+                for cfg in configs
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"ERROR {raw_path}: could not load config ({exc})")
             had_errors = True
