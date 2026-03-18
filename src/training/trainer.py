@@ -23,12 +23,18 @@ def train_one_config(
     use_gpu: str,
     models_dir: Path,
     dataset_cache: DatasetCache,
+    run_seed: int,
+    run_index: int = 1,
+    run_count: int = 1,
     save_models: bool = True,
 ) -> dict[str, Any]:
     """Train a single model configuration with OOM fallback handling."""
     name = config.get("name", f"{config['model_type']}_run")
-    run_seed = int(config.get("seed", config.get("split_seed", 42)))
+    run_seed = int(run_seed)
     set_seed(run_seed)
+
+    config = dict(config)
+    config["seed"] = run_seed
 
     # Prepare data
     prepared = prepare_split_for_config(config, dataset_cache)
@@ -58,7 +64,18 @@ def train_one_config(
 
     # Build result
     result = _build_result(
-        name, config, prepared, model, history, metrics, model_path, train_info, run_seed, save_models
+        name,
+        config,
+        prepared,
+        model,
+        history,
+        metrics,
+        model_path,
+        train_info,
+        run_seed,
+        run_index,
+        run_count,
+        save_models,
     )
 
     _print_results(result, model_path, save_models)
@@ -214,25 +231,40 @@ def _build_result(
     model_path: Path,
     train_info: dict[str, Any],
     run_seed: int,
+    run_index: int,
+    run_count: int,
     save_models: bool,
 ) -> dict[str, Any]:
     """Build the result dictionary for a training run."""
+    dataset_meta = {
+        "dataset": config.get("dataset", "brown"),
+        "sentences": int(prepared["actual_sentences"]),
+        "sentences_config": config["sentences"],
+        "maxlen": int(config["maxlen"]),
+        "split_seed": int(prepared.get("global_split_seed", 42)),
+        "seed": int(run_seed),
+        "vocab_size": int(prepared["vocab_size"]),
+        "num_tags": int(prepared["num_tags"]),
+        "shapes": make_json_safe(prepared["dataset_shape"]),
+    }
+    if "global_split_path" in prepared:
+        dataset_meta["global_split_path"] = str(prepared["global_split_path"])
+    if "global_split_train_pool_size" in prepared:
+        dataset_meta["global_split_train_pool_size"] = int(prepared["global_split_train_pool_size"])
+    if "global_split_test_size" in prepared:
+        dataset_meta["global_split_test_size"] = int(prepared["global_split_test_size"])
+    if "global_test_size" in prepared:
+        dataset_meta["global_test_size"] = float(prepared["global_test_size"])
+
     return {
         "name": name,
         "model_type": config["model_type"],
         "config": make_json_safe(config),
-        "dataset_meta": {
-            "dataset": config.get("dataset", "brown"),
-            "sentences": int(prepared["actual_sentences"]),
-            "sentences_config": config["sentences"],
-            "maxlen": int(config["maxlen"]),
-            "split_seed": int(config["split_seed"]),
-            "seed": int(run_seed),
-            "vocab_size": int(prepared["vocab_size"]),
-            "num_tags": int(prepared["num_tags"]),
-            "shapes": make_json_safe(prepared["dataset_shape"]),
-        },
+        "dataset_meta": dataset_meta,
         "num_params": int(model.count_params()),
+        "run_seed": int(run_seed),
+        "run_index": int(run_index),
+        "run_count": int(run_count),
         "train_time_sec": float(train_info["train_time_sec"]),
         "train_batch_size_used": int(train_info["train_batch_size_used"]),
         "train_device_used": str(train_info["train_device_used"]),

@@ -1,0 +1,35 @@
+[
+  {
+    "name": "P4_transformer_robust_s{sentences}_final",
+    "group": "A_baseline_family_comparison",
+    "hypothesis": "P4_robustness_transformer_13k",
+    "stage_id": "phase4_transformer_robustness_13k",
+    "model_type": "transformer",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "ff_dim": "2xembed_dim",
+    "epochs": 100,
+    "early_stopping": true,
+    "patience": 4,
+    "priority": 40,
+    "pick_best_from": "phase3_transformer_regularization_13k",
+    "runs-count": 5
+  },
+  {
+    "name": "P4_lstm_robust_s{sentences}_final",
+    "group": "A_baseline_family_comparison",
+    "hypothesis": "P4_robustness_lstm_13k",
+    "stage_id": "phase4_lstm_robustness_13k",
+    "model_type": "lstm",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "epochs": 100,
+    "early_stopping": true,
+    "patience": 4,
+    "priority": 41,
+    "pick_best_from": "phase3_lstm_regularization_13k",
+    "runs-count": 5
+  }
+]

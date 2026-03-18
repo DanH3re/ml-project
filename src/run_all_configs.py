@@ -3,7 +3,7 @@
 Run all JSON config files from a configs directory through src/train_pos.py.
 
 For each config file <name>.json, this runner writes:
-    resources/results/<name>/training_results.json
+    resources/results/<name>/summary.json (+ one JSON per trained model)
     resources/models/<name>/
     resources/logs/<name>.log
 """
@@ -11,9 +11,22 @@ For each config file <name>.json, this runner writes:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+except ImportError as exc:
+    raise SystemExit(
+        "Missing dependency 'rich'. Install it with: pip install rich"
+    ) from exc
+
+
+console = Console()
 
 
 def discover_config_files(configs_dir: Path) -> list[Path]:
@@ -42,6 +55,84 @@ def resolve_python(project_root: Path, explicit_python: Path | None) -> Path:
         return venv_python
 
     return Path(sys.executable)
+
+
+def _status_style(status: str) -> str:
+    if status == "DONE":
+        return "green"
+    if status == "SKIPPED":
+        return "yellow"
+    return "red"
+
+
+def _load_config_module(project_root: Path):
+    """Load src/training/config.py directly to count expanded configs safely."""
+    cfg_path = project_root / "src" / "training" / "config.py"
+    spec = importlib.util.spec_from_file_location("training_config_for_runner", cfg_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load config module from {cfg_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _estimate_planned_runs(
+    config_mod,
+    config_path: Path,
+    run_count: int,
+) -> tuple[int | None, int | None]:
+    """Return (expanded_configs, planned_runs) or (None, None) if estimate fails."""
+    try:
+        expanded = config_mod.load_configs(str(config_path))
+        expanded_count = len(expanded)
+        return expanded_count, expanded_count * int(run_count)
+    except Exception:  # noqa: BLE001
+        return None, None
+
+
+def _print_run_banner(
+    idx: int,
+    total: int,
+    config_name: str,
+    expanded_configs: int | None,
+    planned_runs: int | None,
+    run_count: int,
+    results_dir: Path,
+    summary_json: Path,
+    model_dir: Path,
+    log_path: Path,
+    cmd: list[str],
+) -> str:
+    expanded_text = str(expanded_configs) if expanded_configs is not None else "unknown"
+    planned_text = str(planned_runs) if planned_runs is not None else "unknown"
+    header_lines = [
+        f"Config file: {idx}/{total}",
+        f"Config: {config_name}",
+        f"Expanded configs in file: {expanded_text}",
+        f"Run count per expanded config: {run_count}",
+        f"Planned trainer runs for this file: {planned_text}",
+        f"Results dir: {results_dir}",
+        f"Summary: {summary_json}",
+        f"Models: {model_dir}",
+        f"Log: {log_path}",
+        f"Command: {' '.join(cmd)}",
+    ]
+    text = "\n".join(header_lines)
+    console.print(Panel(text, title="Config Execution", border_style="cyan"))
+    return text
+
+
+def _stream_output_to_console_and_log(process: subprocess.Popen, logf) -> None:
+    """Tee child process output to both terminal and log without rich formatting."""
+    assert process.stdout is not None
+    while True:
+        chunk = process.stdout.read(8192)
+        if not chunk:
+            break
+        sys.stdout.write(chunk)
+        sys.stdout.flush()
+        logf.write(chunk)
+        logf.flush()
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run train_pos.py for all config JSON files.")
@@ -76,6 +167,18 @@ def main() -> int:
         help="GPU mode passed to train_pos.py.",
     )
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Base seed forwarded to train_pos.py for run seed generation.",
+    )
+    parser.add_argument(
+        "--run-count",
+        type=int,
+        default=1,
+        help="Number of random-seed runs per config forwarded to train_pos.py.",
+    )
+    parser.add_argument(
         "--results-root",
         type=Path,
         default=None,
@@ -95,8 +198,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--save-models",
-        action="store_true",
-        help="Pass --save-models to train_pos.py",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether train_pos.py should save model files.",
     )
     parser.add_argument(
         "--continue-on-error",
@@ -106,7 +210,7 @@ def main() -> int:
     parser.add_argument(
         "--skip-existing",
         action="store_true",
-        help="Skip a config if its output JSON already exists.",
+        help="Skip a config if summary.json already exists.",
     )
     parser.add_argument(
         "--extra-args",
@@ -128,68 +232,88 @@ def main() -> int:
     if not configs_dir.exists():
         raise FileNotFoundError(f"Configs directory not found: {configs_dir}")
 
+    config_mod = _load_config_module(project_root)
+
     config_files = discover_config_files(configs_dir)
     if not config_files:
-        print(f"No JSON config files found in {configs_dir}")
+        console.print(f"[red]No JSON config files found in {configs_dir}[/red]")
         return 1
 
-    print(f"Project root : {project_root}")
-    print(f"Train script : {train_script}")
-    print(f"Configs dir  : {configs_dir}")
-    print(f"Results root : {results_root}")
-    print(f"Models root  : {models_root}")
-    print(f"Logs root    : {logs_root}")
-    print(f"Python       : {python_bin}")
-    print(f"GPU mode     : {args.use_gpu}")
-    print(f"Found {len(config_files)} config file(s).")
+    overview = Table(show_header=False, box=None, pad_edge=False)
+    overview.add_row("Project root", str(project_root))
+    overview.add_row("Train script", str(train_script))
+    overview.add_row("Configs dir", str(configs_dir))
+    overview.add_row("Results root", str(results_root))
+    overview.add_row("Models root", str(models_root))
+    overview.add_row("Logs root", str(logs_root))
+    overview.add_row("Python", str(python_bin))
+    overview.add_row("GPU mode", args.use_gpu)
+    overview.add_row("Base seed", str(args.seed))
+    overview.add_row("Run count", str(args.run_count))
+    overview.add_row("Save models", str(args.save_models))
+    overview.add_row("Config files", str(len(config_files)))
+    console.print(Panel(overview, title="Run All Configs", border_style="green"))
 
     failures: list[tuple[str, int]] = []
+    summary_rows: list[tuple[str, str, int, str]] = []
+    skipped_count = 0
 
     for idx, config_path in enumerate(config_files, start=1):
         stem = config_path.stem
         out_dir = results_root / stem
-        output_json = out_dir / "training_results.json"
+        summary_json = out_dir / "summary.json"
         model_dir = models_root / stem
         log_path = logs_root / f"{stem}.log"
 
-        if args.skip_existing and output_json.exists():
-            print(f"\n[{idx}/{len(config_files)}] Skipping {stem} (already exists: {output_json})")
+        if args.skip_existing and summary_json.exists():
+            skipped_count += 1
+            summary_rows.append((config_path.name, "SKIPPED", 0, str(log_path)))
+            console.print(
+                f"[yellow]SKIPPED[/yellow] {config_path.name} (already exists: {summary_json})"
+            )
             continue
 
         out_dir.mkdir(parents=True, exist_ok=True)
         model_dir.mkdir(parents=True, exist_ok=True)
         logs_root.mkdir(parents=True, exist_ok=True)
 
+        expanded_configs, planned_runs = _estimate_planned_runs(
+            config_mod,
+            config_path,
+            run_count=args.run_count,
+        )
+
         cmd = [
             str(python_bin),
             str(train_script),
             "--use-gpu", args.use_gpu,
+            "--seed", str(args.seed),
+            "--run-count", str(args.run_count),
             "--config", str(config_path),
-            "--output", str(output_json),
+            "--output", str(out_dir),
             "--models-dir", str(model_dir),
+            "--save-models", str(args.save_models),
         ]
-
-        if args.save_models:
-            cmd.append("--save-models")
 
         if args.extra_args:
             cmd.extend(args.extra_args)
 
-        header = [
-            "=" * 100,
-            f"[{idx}/{len(config_files)}] Running config: {config_path.name}",
-            f"Output JSON: {output_json}",
-            f"Models dir : {model_dir}",
-            f"Log file   : {log_path}",
-            "Command    : " + " ".join(cmd),
-            "=" * 100,
-            "",
-        ]
-
-        print("\n".join(header))
+        banner_text = _print_run_banner(
+            idx,
+            len(config_files),
+            config_path.name,
+            expanded_configs,
+            planned_runs,
+            args.run_count,
+            out_dir,
+            summary_json,
+            model_dir,
+            log_path,
+            cmd,
+        )
 
         with log_path.open("w", encoding="utf-8") as logf:
-            logf.write("\n".join(header))
+            logf.write(banner_text + "\n\n")
             logf.flush()
 
             process = subprocess.Popen(
@@ -201,29 +325,53 @@ def main() -> int:
                 bufsize=1,
             )
 
-            assert process.stdout is not None
-            for line in process.stdout:
-                print(line, end="")
-                logf.write(line)
-
+            _stream_output_to_console_and_log(process, logf)
             return_code = process.wait()
+
+        status = "DONE" if return_code == 0 else "FAILED"
+        summary_rows.append((config_path.name, status, int(return_code), str(log_path)))
 
         if return_code != 0:
             failures.append((config_path.name, return_code))
-            print(f"\nFAILED: {config_path.name} (exit code {return_code})")
+            console.print(
+                f"[red]FAILED[/red] {config_path.name} (exit code {return_code})"
+            )
             if not args.continue_on_error:
                 break
         else:
-            print(f"\nDONE: {config_path.name}")
+            console.print(f"[green]DONE[/green] {config_path.name}")
 
-    print("\n" + "#" * 100)
+    summary = Table(title="Execution Summary")
+    summary.add_column("Config", style="cyan")
+    summary.add_column("Status")
+    summary.add_column("Exit", justify="right")
+    summary.add_column("Log", overflow="fold")
+    for config_name, status, exit_code, log in summary_rows:
+        summary.add_row(
+            config_name,
+            f"[{_status_style(status)}]{status}[/{_status_style(status)}]",
+            str(exit_code),
+            log,
+        )
+    console.print(summary)
+
+    done_count = sum(1 for _, status, _, _ in summary_rows if status == "DONE")
+    fail_count = sum(1 for _, status, _, _ in summary_rows if status == "FAILED")
+    console.print(
+        Panel(
+            f"Done: {done_count}  |  Skipped: {skipped_count}  |  Failed: {fail_count}",
+            title="Totals",
+            border_style="magenta",
+        )
+    )
+
     if failures:
-        print("Completed with failures:")
+        console.print("[red]Completed with failures:[/red]")
         for name, code in failures:
-            print(f"  - {name}: exit code {code}")
+            console.print(f"  - {name}: exit code {code}")
         return 1
 
-    print("All config files completed successfully.")
+    console.print("[bold green]All config files completed successfully.[/bold green]")
     return 0
 
 

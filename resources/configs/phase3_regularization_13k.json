@@ -1,0 +1,37 @@
+[
+  {
+    "name": "P3_transformer_reg_s{sentences}_d{dropout}",
+    "group": "A_baseline_family_comparison",
+    "hypothesis": "P3_regularization_transformer_13k",
+    "stage_id": "phase3_transformer_regularization_13k",
+    "model_type": "transformer",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "ff_dim": "2xembed_dim",
+    "dropout": [0.0, 0.1, 0.2, 0.3],
+    "epochs": 90,
+    "early_stopping": true,
+    "patience": 4,
+    "priority": 30,
+    "pick_best_from": "phase2_transformer_optimizer_13k",
+    "runs-count": 1
+  },
+  {
+    "name": "P3_lstm_reg_s{sentences}_d{dropout}",
+    "group": "A_baseline_family_comparison",
+    "hypothesis": "P3_regularization_lstm_13k",
+    "stage_id": "phase3_lstm_regularization_13k",
+    "model_type": "lstm",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "dropout": [0.1, 0.2, 0.3],
+    "epochs": 90,
+    "early_stopping": true,
+    "patience": 4,
+    "priority": 31,
+    "pick_best_from": "phase2_lstm_optimizer_13k",
+    "runs-count": 1
+  }
+]
