@@ -1,0 +1,40 @@
+[
+  {
+    "name": "P2_transformer_opt_s{sentences}_lr{lr}_b{batch_size}_d{dropout}",
+    "hypothesis": "P2_optimizer_transformer_13k",
+    "stage_id": "phase2_transformer_optimizer_13k",
+    "model_type": "transformer",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "dropout": 0.1,
+    "lr": [0.00001, 0.00002, 0.00003, 0.00005],
+    "batch_size": [16, 32, 64],
+    "epochs": 80,
+    "early_stopping": true,
+    "patience": 3,
+    "priority": 20,
+    "pick_best_from": "phase1_transformer_architecture_13k",
+    "pick_best_count": 3,
+    "runs-count": 2
+  },
+  {
+    "name": "P2_lstm_opt_s{sentences}_lr{lr}_b{batch_size}_d{dropout}",
+    "hypothesis": "P2_optimizer_lstm_13k",
+    "stage_id": "phase2_lstm_optimizer_13k",
+    "model_type": "lstm",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "dropout": 0.2,
+    "lr": [0.001, 0.003, 0.005],
+    "batch_size": [8, 16, 32],
+    "epochs": 80,
+    "early_stopping": true,
+    "patience": 3,
+    "priority": 21,
+    "pick_best_from": "phase1_lstm_architecture_13k",
+    "pick_best_count": 3,
+    "runs-count": 2
+  }
+]

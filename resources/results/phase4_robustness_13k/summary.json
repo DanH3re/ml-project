@@ -1,0 +1,229 @@
+{
+  "config_name": "phase4_robustness_13k",
+  "config_path": "/home/dan-gavriluta/Coding/ml-project/resources/configs/13k_brown/phase4_robustness_13k.json",
+  "total_models": 20,
+  "result_files": [
+    "001_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run1_seed82789451.json",
+    "002_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run2_seed614361100.json",
+    "003_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run3_seed1495130349.json",
+    "004_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run4_seed1637851843.json",
+    "005_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run5_seed309094227.json",
+    "006_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run1_seed877324117.json",
+    "007_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run2_seed1116735497.json",
+    "008_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run3_seed1163876029.json",
+    "009_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run4_seed1506705062.json",
+    "010_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run5_seed1851209552.json",
+    "011_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run1_seed583848003.json",
+    "012_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run2_seed896984998.json",
+    "013_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run3_seed1048032594.json",
+    "014_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run4_seed553321969.json",
+    "015_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run5_seed175834558.json",
+    "016_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run1_seed1907541172.json",
+    "017_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run2_seed164031801.json",
+    "018_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run3_seed858981437.json",
+    "019_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run4_seed85817125.json",
+    "020_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run5_seed1264052219.json"
+  ],
+  "models": [
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run1_seed82789451",
+      "file": "001_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run1_seed82789451.json",
+      "model_type": "transformer",
+      "run_index": 1,
+      "run_seed": 82789451,
+      "best_val_accuracy": 0.9214743971824646,
+      "accuracy": null,
+      "f1": 0.8691292663731329
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run2_seed614361100",
+      "file": "002_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run2_seed614361100.json",
+      "model_type": "transformer",
+      "run_index": 2,
+      "run_seed": 614361100,
+      "best_val_accuracy": 0.9221541881561279,
+      "accuracy": null,
+      "f1": 0.8688347202049624
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run3_seed1495130349",
+      "file": "003_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run3_seed1495130349.json",
+      "model_type": "transformer",
+      "run_index": 3,
+      "run_seed": 1495130349,
+      "best_val_accuracy": 0.9205387234687805,
+      "accuracy": null,
+      "f1": 0.8639516504242553
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run4_seed1637851843",
+      "file": "004_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run4_seed1637851843.json",
+      "model_type": "transformer",
+      "run_index": 4,
+      "run_seed": 1637851843,
+      "best_val_accuracy": 0.9229360818862915,
+      "accuracy": null,
+      "f1": 0.8680544187580687
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run5_seed309094227",
+      "file": "005_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top1_run5_seed309094227.json",
+      "model_type": "transformer",
+      "run_index": 5,
+      "run_seed": 309094227,
+      "best_val_accuracy": 0.9224616885185242,
+      "accuracy": null,
+      "f1": 0.8687856413914699
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run1_seed877324117",
+      "file": "006_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run1_seed877324117.json",
+      "model_type": "transformer",
+      "run_index": 1,
+      "run_seed": 877324117,
+      "best_val_accuracy": 0.9207435250282288,
+      "accuracy": null,
+      "f1": 0.8639303989798487
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run2_seed1116735497",
+      "file": "007_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run2_seed1116735497.json",
+      "model_type": "transformer",
+      "run_index": 2,
+      "run_seed": 1116735497,
+      "best_val_accuracy": 0.9227436780929565,
+      "accuracy": null,
+      "f1": 0.8658828264372279
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run3_seed1163876029",
+      "file": "008_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run3_seed1163876029.json",
+      "model_type": "transformer",
+      "run_index": 3,
+      "run_seed": 1163876029,
+      "best_val_accuracy": 0.9223718047142029,
+      "accuracy": null,
+      "f1": 0.8619426917105977
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run4_seed1506705062",
+      "file": "009_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run4_seed1506705062.json",
+      "model_type": "transformer",
+      "run_index": 4,
+      "run_seed": 1506705062,
+      "best_val_accuracy": 0.9213204383850098,
+      "accuracy": null,
+      "f1": 0.8663930442023073
+    },
+    {
+      "name": "P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run5_seed1851209552",
+      "file": "010_P4_transformer_robust_s13000_final__from_phase3_transformer_regularization_13k_top2_run5_seed1851209552.json",
+      "model_type": "transformer",
+      "run_index": 5,
+      "run_seed": 1851209552,
+      "best_val_accuracy": 0.920525848865509,
+      "accuracy": null,
+      "f1": 0.8657953840944242
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run1_seed583848003",
+      "file": "011_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run1_seed583848003.json",
+      "model_type": "lstm",
+      "run_index": 1,
+      "run_seed": 583848003,
+      "best_val_accuracy": 0.9294149875640869,
+      "accuracy": null,
+      "f1": 0.9225919908496721
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run2_seed896984998",
+      "file": "012_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run2_seed896984998.json",
+      "model_type": "lstm",
+      "run_index": 2,
+      "run_seed": 896984998,
+      "best_val_accuracy": 0.9260634779930115,
+      "accuracy": null,
+      "f1": 0.9225095401402384
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run3_seed1048032594",
+      "file": "013_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run3_seed1048032594.json",
+      "model_type": "lstm",
+      "run_index": 3,
+      "run_seed": 1048032594,
+      "best_val_accuracy": 0.928025484085083,
+      "accuracy": null,
+      "f1": 0.928220368676551
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run4_seed553321969",
+      "file": "014_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run4_seed553321969.json",
+      "model_type": "lstm",
+      "run_index": 4,
+      "run_seed": 553321969,
+      "best_val_accuracy": 0.926533579826355,
+      "accuracy": null,
+      "f1": 0.9225671497193206
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run5_seed175834558",
+      "file": "015_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top1_run5_seed175834558.json",
+      "model_type": "lstm",
+      "run_index": 5,
+      "run_seed": 175834558,
+      "best_val_accuracy": 0.9260637164115906,
+      "accuracy": null,
+      "f1": 0.9259281276871195
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run1_seed1907541172",
+      "file": "016_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run1_seed1907541172.json",
+      "model_type": "lstm",
+      "run_index": 1,
+      "run_seed": 1907541172,
+      "best_val_accuracy": 0.9284748435020447,
+      "accuracy": null,
+      "f1": 0.92892436826033
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run2_seed164031801",
+      "file": "017_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run2_seed164031801.json",
+      "model_type": "lstm",
+      "run_index": 2,
+      "run_seed": 164031801,
+      "best_val_accuracy": 0.9288836121559143,
+      "accuracy": null,
+      "f1": 0.9211758796309101
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run3_seed858981437",
+      "file": "018_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run3_seed858981437.json",
+      "model_type": "lstm",
+      "run_index": 3,
+      "run_seed": 858981437,
+      "best_val_accuracy": 0.9264724850654602,
+      "accuracy": null,
+      "f1": 0.922473972295711
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run4_seed85817125",
+      "file": "019_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run4_seed85817125.json",
+      "model_type": "lstm",
+      "run_index": 4,
+      "run_seed": 85817125,
+      "best_val_accuracy": 0.9266152381896973,
+      "accuracy": null,
+      "f1": 0.9268145701292256
+    },
+    {
+      "name": "P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run5_seed1264052219",
+      "file": "020_P4_lstm_robust_s13000_final__from_phase3_lstm_regularization_13k_top2_run5_seed1264052219.json",
+      "model_type": "lstm",
+      "run_index": 5,
+      "run_seed": 1264052219,
+      "best_val_accuracy": 0.9270033836364746,
+      "accuracy": null,
+      "f1": 0.922696753025907
+    }
+  ]
+}

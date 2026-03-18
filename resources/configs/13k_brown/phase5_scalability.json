@@ -1,0 +1,34 @@
+[
+  {
+    "name": "P5_transformer_scalability_s{sentences}_final",
+    "hypothesis": "P5_scalability_transformer_13k",
+    "stage_id": "phase5_transformer_scalability_13k",
+    "model_type": "transformer",
+    "dataset": "brown",
+    "sentences": [20000, 25000, 30000, 40000, 45000],
+    "maxlen": 30,
+    "epochs": 100,
+    "early_stopping": true,
+    "patience": 4,
+    "priority": 40,
+    "pick_best_from": "phase3_transformer_regularization_13k",
+    "pick_best_count": 2,
+    "runs-count": 1
+  },
+  {
+    "name": "P5_lstm_scalability_s{sentences}_final",
+    "hypothesis": "P5_scalability_lstm_13k",
+    "stage_id": "phase5_lstm_scalability_13k",
+    "model_type": "lstm",
+    "dataset": "brown",
+    "sentences": [20000, 25000, 30000, 40000, 45000],
+    "maxlen": 30,
+    "epochs": 100,
+    "early_stopping": true,
+    "patience": 4,
+    "priority": 41,
+    "pick_best_from": "phase3_lstm_regularization_13k",
+    "pick_best_count": 2,
+    "runs-count": 1
+  }
+]

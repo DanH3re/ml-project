@@ -1,0 +1,42 @@
+[
+  {
+    "name": "P1_transformer_arch_s{sentences}_L{num_layers}_h{num_heads}_e{embed_dim}_ff{ff_dim}",
+    "hypothesis": "P1_architecture_transformer_13k",
+    "stage_id": "phase1_transformer_architecture_13k",
+    "model_type": "transformer",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "num_layers": [1, 2, 3],
+    "embed_dim": [64, 128, 192],
+    "num_heads": [2, 4, 8],
+    "ff_dim": "3xembed_dim",
+    "dropout": 0.1,
+    "lr": 0.00003,
+    "batch_size": 32,
+    "epochs": 60,
+    "early_stopping": true,
+    "patience": 3,
+    "priority": 10,
+    "runs-count": 1
+  },
+  {
+    "name": "P1_lstm_arch_s{sentences}_u{lstm_units}_e{embed_dim}",
+    "hypothesis": "P1_architecture_lstm_13k",
+    "stage_id": "phase1_lstm_architecture_13k",
+    "model_type": "lstm",
+    "dataset": "brown",
+    "sentences": 13000,
+    "maxlen": 30,
+    "embed_dim": [64, 128, 192],
+    "lstm_units": [64, 160, 256],
+    "dropout": 0.2,
+    "lr": 0.001,
+    "batch_size": 32,
+    "epochs": 60,
+    "early_stopping": true,
+    "patience": 3,
+    "priority": 11,
+    "runs-count": 1
+  }
+]
