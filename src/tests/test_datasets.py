@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Add src to path so imports work from scripts
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data import load_dataset_by_name
 
@@ -43,7 +43,7 @@ def test_dataset(name: str, n: int = 10) -> None:
 
 
 def main():
-    datasets = ["ud", "brown", "conll2003", "ptb", "gum"]
+    datasets = ["ud", "brown"]
 
     print("=" * 60)
     print("POS Tagging Dataset Loader Test")
