@@ -28,6 +28,13 @@ except ImportError as exc:
 
 console = Console()
 
+try:
+    from training import _DependencyResolver, _expand_pick_best_dependencies
+except ImportError as exc:
+    raise SystemExit(
+        "Missing training dependencies. Ensure src/ is on PYTHONPATH."
+    ) from exc
+
 
 def discover_config_files(configs_dir: Path) -> list[Path]:
     return sorted(
@@ -101,10 +108,13 @@ def _load_config_module(project_root: Path):
 def _estimate_planned_runs(
     config_mod,
     config_path: Path,
+    results_root: Path,
 ) -> tuple[int | None, int | None]:
     """Return (expanded_configs, planned_runs) or (None, None) if estimate fails."""
     try:
         expanded = config_mod.load_configs(str(config_path))
+        resolver = _DependencyResolver(results_root=results_root)
+        expanded = _expand_pick_best_dependencies(expanded, resolver)
         expanded_count = len(expanded)
         planned_runs = sum(int(cfg.get("runs-count", 1)) for cfg in expanded)
         return expanded_count, planned_runs
@@ -159,6 +169,8 @@ def _stream_output_to_console_and_log(process: subprocess.Popen, logf) -> None:
             break
         sys.stdout.write(chunk)
         sys.stdout.flush()
+        logf.write(chunk)
+        logf.flush()
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run train_pos.py for all config JSON files.")
@@ -297,6 +309,7 @@ def main() -> int:
         expanded_configs, planned_runs = _estimate_planned_runs(
             config_mod,
             config_path,
+            results_root,
         )
 
         existing_models = _count_existing_result_models(out_dir)
