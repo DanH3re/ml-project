@@ -16,9 +16,9 @@ from data import load_dataset_by_name
 
 DEFAULT_DATASETS = ["ud", "brown"]
 
-# Split-aware datasets in your loader
+# Datasets are loaded as full corpora in the loader; split is app-level.
 SPLITS_BY_DATASET = {
-    "ud": ["train", "validation", "test"],
+    "ud": [None],
     "brown": [None],
 }
 
