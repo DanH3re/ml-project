@@ -16,6 +16,8 @@ from .layers import LinearWarmup, TokenAndPositionEmbedding, TransformerBlock
 from .models import build_model, clone_model_to_cpu
 from .trainer import train_one_config
 from .utils import configure_runtime, make_json_safe, set_seed, slugify
+from .ranking import _DependencyResolver, _expand_pick_best_dependencies
+
 
 __all__ = [
     # Config
@@ -35,4 +37,7 @@ __all__ = [
     "make_json_safe",
     "set_seed",
     "slugify",
+    # Ranking
+    "_DependencyResolver",
+    "_expand_pick_best_dependencies",
 ]
