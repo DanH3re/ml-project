@@ -135,25 +135,35 @@ def print_tag_statistics(metrics: dict[str, Any]) -> None:
     print(f"Unique true tags: {tag_counts.get('unique_true_tags', 'N/A')}")
     print(f"Unique predicted tags: {tag_counts.get('unique_pred_tags', 'N/A')}")
 
-    # Sort by support (most common first)
+    # Get distributions for true/pred counts
+    true_dist = tag_counts.get("true_distribution", {})
+    pred_dist = tag_counts.get("pred_distribution", {})
+
+    # Sort by true count (most common first)
     sorted_tags = sorted(
         per_tag.items(),
-        key=lambda x: x[1].get("support", 0),
+        key=lambda x: true_dist.get(x[0], 0),
         reverse=True,
     )
 
     print("\nPer-tag performance (sorted by frequency):")
-    print("-" * 60)
-    print(f"{'Tag':<15} {'Support':>8} {'Prec':>8} {'Rec':>8} {'F1':>8}")
-    print("-" * 60)
+    print("-" * 80)
+    print(f"{'Tag':<12} {'True':>7} {'Pred':>7} {'Diff':>7} {'Prec':>7} {'Rec':>7} {'F1':>7}")
+    print("-" * 80)
 
     for tag_name, stats in sorted_tags[:20]:  # Show top 20
+        true_count = true_dist.get(tag_name, 0)
+        pred_count = pred_dist.get(tag_name, 0)
+        diff = pred_count - true_count
+        diff_str = f"+{diff}" if diff > 0 else str(diff)
         print(
-            f"{tag_name:<15} "
-            f"{stats['support']:>8} "
-            f"{stats['precision']:>8.4f} "
-            f"{stats['recall']:>8.4f} "
-            f"{stats['f1']:>8.4f}"
+            f"{tag_name:<12} "
+            f"{true_count:>7} "
+            f"{pred_count:>7} "
+            f"{diff_str:>7} "
+            f"{stats['precision']:>7.4f} "
+            f"{stats['recall']:>7.4f} "
+            f"{stats['f1']:>7.4f}"
         )
 
     # Show confusion summary (over/under predictions)
