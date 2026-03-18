@@ -183,7 +183,8 @@ def _expand_param_ranges(configs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             concrete = dict(cfg)
             _resolve_derived_params(concrete, derived_keys, cfg)
             assigned = {k: concrete[k] for k in derived_keys if isinstance(concrete.get(k), (int, float))}
-            concrete["name"] = _name_for_params(cfg.get("name", "run"), assigned)
+            name_values = _with_placeholder_scalars(cfg.get("name", "run"), assigned, concrete)
+            concrete["name"] = _name_for_params(cfg.get("name", "run"), name_values)
             expanded.append(concrete)
             continue
 
@@ -203,7 +204,8 @@ def _expand_param_ranges(configs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for key in derived_keys:
                 assigned[key] = concrete[key]
 
-            concrete["name"] = _name_for_params(cfg.get("name", "run"), assigned)
+            name_values = _with_placeholder_scalars(cfg.get("name", "run"), assigned, concrete)
+            concrete["name"] = _name_for_params(cfg.get("name", "run"), name_values)
             expanded.append(concrete)
 
     return expanded
@@ -226,6 +228,8 @@ def _is_numeric_list(value: Any) -> bool:
 _MULTIPLE_EXPR = re.compile(
     r"^\s*(?P<factor>[0-9]+(?:\.[0-9]+)?)\s*x\s*(?P<ref>[A-Za-z_][A-Za-z0-9_]*)\s*$"
 )
+
+_PLACEHOLDER_EXPR = re.compile(r"\{(?P<key>[A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def _is_multiple_expr(value: Any) -> bool:
@@ -478,6 +482,22 @@ def _name_for_params(base_name: str, assigned: dict[str, int | float]) -> str:
 
     suffix_parts = [f"{k}_{_param_label(v)}" for k, v in assigned.items()]
     return f"{base_name}_{'_'.join(suffix_parts)}"
+
+
+def _with_placeholder_scalars(
+    base_name: str,
+    assigned: dict[str, int | float],
+    concrete: dict[str, Any],
+) -> dict[str, int | float]:
+    """Add fixed numeric values for placeholders present in base_name."""
+    out = dict(assigned)
+    for match in _PLACEHOLDER_EXPR.finditer(base_name):
+        key = match.group("key")
+        value = concrete.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        out.setdefault(key, value)
+    return out
 
 
 def _param_label(value: int | float) -> str:

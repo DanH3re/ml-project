@@ -8,7 +8,6 @@
     "dataset": "brown",
     "sentences": 13000,
     "maxlen": 30,
-    "ff_dim": "2xembed_dim",
     "epochs": 100,
     "early_stopping": true,
     "patience": 4,

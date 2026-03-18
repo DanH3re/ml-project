@@ -11,7 +11,7 @@
     "num_layers": [1, 2, 3],
     "embed_dim": [64, 128, 192],
     "num_heads": [2, 4, 8],
-    "ff_dim": "2xembed_dim",
+    "ff_dim": "3xembed_dim",
     "dropout": 0.1,
     "lr": 0.00003,
     "batch_size": 32,

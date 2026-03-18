@@ -71,7 +71,7 @@ def main() -> int:
 
         try:
             configs = config_mod.load_configs(str(resolved))
-            actual_runs = len(configs)
+            actual_runs = sum(int(cfg.get("runs-count", 1)) for cfg in configs)
         except Exception as exc:  # noqa: BLE001
             print(f"ERROR {raw_path}: could not load config ({exc})")
             had_errors = True

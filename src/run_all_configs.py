@@ -36,6 +36,28 @@ def discover_config_files(configs_dir: Path) -> list[Path]:
     )
 
 
+def sort_config_files_by_priority(config_mod, config_files: list[Path]) -> list[Path]:
+    """Sort config files by their minimum expanded config priority (ascending)."""
+    max_priority = 10**9
+    ranked: list[tuple[int, str, Path]] = []
+
+    for path in config_files:
+        priority = max_priority
+        try:
+            expanded = config_mod.load_configs(str(path))
+            if expanded:
+                priority = min(int(cfg.get("priority", 100)) for cfg in expanded)
+        except Exception as exc:  # noqa: BLE001
+            console.print(
+                f"[yellow]Priority read failed for {path.name}; placing last ({exc}).[/yellow]"
+            )
+
+        ranked.append((priority, path.name, path))
+
+    ranked.sort(key=lambda item: (item[0], item[1]))
+    return [path for _, _, path in ranked]
+
+
 def ensure_train_script(project_root: Path, train_script: Path) -> Path:
     candidate = train_script if train_script.is_absolute() else (project_root / train_script)
     if not candidate.exists():
@@ -79,15 +101,22 @@ def _load_config_module(project_root: Path):
 def _estimate_planned_runs(
     config_mod,
     config_path: Path,
-    run_count: int,
 ) -> tuple[int | None, int | None]:
     """Return (expanded_configs, planned_runs) or (None, None) if estimate fails."""
     try:
         expanded = config_mod.load_configs(str(config_path))
         expanded_count = len(expanded)
-        return expanded_count, expanded_count * int(run_count)
+        planned_runs = sum(int(cfg.get("runs-count", 1)) for cfg in expanded)
+        return expanded_count, planned_runs
     except Exception:  # noqa: BLE001
         return None, None
+
+
+def _count_existing_result_models(results_dir: Path) -> int:
+    """Count existing per-model result JSON files (excluding summary)."""
+    if not results_dir.exists():
+        return 0
+    return sum(1 for p in results_dir.glob("*.json") if p.is_file() and p.name != "summary.json")
 
 
 def _print_run_banner(
@@ -96,7 +125,6 @@ def _print_run_banner(
     config_name: str,
     expanded_configs: int | None,
     planned_runs: int | None,
-    run_count: int,
     results_dir: Path,
     summary_json: Path,
     model_dir: Path,
@@ -109,7 +137,7 @@ def _print_run_banner(
         f"Config file: {idx}/{total}",
         f"Config: {config_name}",
         f"Expanded configs in file: {expanded_text}",
-        f"Run count per expanded config: {run_count}",
+        "Run count source: config runs-count (fallback: 1)",
         f"Planned trainer runs for this file: {planned_text}",
         f"Results dir: {results_dir}",
         f"Summary: {summary_json}",
@@ -131,8 +159,6 @@ def _stream_output_to_console_and_log(process: subprocess.Popen, logf) -> None:
             break
         sys.stdout.write(chunk)
         sys.stdout.flush()
-        logf.write(chunk)
-        logf.flush()
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run train_pos.py for all config JSON files.")
@@ -173,12 +199,6 @@ def main() -> int:
         help="Base seed forwarded to train_pos.py for run seed generation.",
     )
     parser.add_argument(
-        "--run-count",
-        type=int,
-        default=1,
-        help="Number of random-seed runs per config forwarded to train_pos.py.",
-    )
-    parser.add_argument(
         "--results-root",
         type=Path,
         default=None,
@@ -210,7 +230,10 @@ def main() -> int:
     parser.add_argument(
         "--skip-existing",
         action="store_true",
-        help="Skip a config if summary.json already exists.",
+        help=(
+            "Skip already-trained models and skip a config file only when all planned models "
+            "are already present."
+        ),
     )
     parser.add_argument(
         "--extra-args",
@@ -239,6 +262,8 @@ def main() -> int:
         console.print(f"[red]No JSON config files found in {configs_dir}[/red]")
         return 1
 
+    config_files = sort_config_files_by_priority(config_mod, config_files)
+
     overview = Table(show_header=False, box=None, pad_edge=False)
     overview.add_row("Project root", str(project_root))
     overview.add_row("Train script", str(train_script))
@@ -249,9 +274,9 @@ def main() -> int:
     overview.add_row("Python", str(python_bin))
     overview.add_row("GPU mode", args.use_gpu)
     overview.add_row("Base seed", str(args.seed))
-    overview.add_row("Run count", str(args.run_count))
     overview.add_row("Save models", str(args.save_models))
     overview.add_row("Config files", str(len(config_files)))
+    overview.add_row("File order", "priority asc (then filename)")
     console.print(Panel(overview, title="Run All Configs", border_style="green"))
 
     failures: list[tuple[str, int]] = []
@@ -265,14 +290,6 @@ def main() -> int:
         model_dir = models_root / stem
         log_path = logs_root / f"{stem}.log"
 
-        if args.skip_existing and summary_json.exists():
-            skipped_count += 1
-            summary_rows.append((config_path.name, "SKIPPED", 0, str(log_path)))
-            console.print(
-                f"[yellow]SKIPPED[/yellow] {config_path.name} (already exists: {summary_json})"
-            )
-            continue
-
         out_dir.mkdir(parents=True, exist_ok=True)
         model_dir.mkdir(parents=True, exist_ok=True)
         logs_root.mkdir(parents=True, exist_ok=True)
@@ -280,19 +297,34 @@ def main() -> int:
         expanded_configs, planned_runs = _estimate_planned_runs(
             config_mod,
             config_path,
-            run_count=args.run_count,
         )
+
+        existing_models = _count_existing_result_models(out_dir)
+        if args.skip_existing and planned_runs is not None and existing_models >= planned_runs:
+            skipped_count += 1
+            summary_rows.append((config_path.name, "SKIPPED", 0, str(log_path)))
+            console.print(
+                f"[yellow]SKIPPED[/yellow] {config_path.name} "
+                f"(existing models {existing_models}/{planned_runs})"
+            )
+            continue
+
+        if args.skip_existing and existing_models > 0 and planned_runs is not None:
+            console.print(
+                f"[cyan]RESUME[/cyan] {config_path.name} "
+                f"(existing models {existing_models}/{planned_runs})"
+            )
 
         cmd = [
             str(python_bin),
             str(train_script),
             "--use-gpu", args.use_gpu,
             "--seed", str(args.seed),
-            "--run-count", str(args.run_count),
             "--config", str(config_path),
             "--output", str(out_dir),
             "--models-dir", str(model_dir),
             "--save-models", str(args.save_models),
+            "--skip-existing-models", str(args.skip_existing),
         ]
 
         if args.extra_args:
@@ -304,7 +336,6 @@ def main() -> int:
             config_path.name,
             expanded_configs,
             planned_runs,
-            args.run_count,
             out_dir,
             summary_json,
             model_dir,

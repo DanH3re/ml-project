@@ -8,16 +8,15 @@
     "dataset": "brown",
     "sentences": 13000,
     "maxlen": 30,
-    "ff_dim": "2xembed_dim",
     "dropout": 0.1,
     "lr": [0.00001, 0.00002, 0.00003, 0.00005],
-    "batch_size": [16, 32, 48],
+    "batch_size": [16, 32, 64],
     "epochs": 80,
     "early_stopping": true,
     "patience": 3,
     "priority": 20,
     "pick_best_from": "phase1_transformer_architecture_13k",
-    "runs-count": 1
+    "runs-count": 2
   },
   {
     "name": "P2_lstm_opt_s{sentences}_lr{lr}_b{batch_size}_d{dropout}",
@@ -36,6 +35,6 @@
     "patience": 3,
     "priority": 21,
     "pick_best_from": "phase1_lstm_architecture_13k",
-    "runs-count": 1
+    "runs-count": 2
   }
 ]

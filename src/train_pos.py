@@ -99,6 +99,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Whether to save trained model files (true/false)",
     )
+    parser.add_argument(
+        "--skip-existing-models",
+        type=_parse_bool,
+        default=False,
+        help="Skip model runs that already exist in output results directory (true/false)",
+    )
 
     return parser.parse_args()
 
@@ -122,7 +128,14 @@ def run_training(args: argparse.Namespace) -> list[dict]:
     print(f"Default run count (--run-count): {default_run_count}")
 
     # Train models; each run is a standalone result row.
-    results = []
+    if args.skip_existing_models:
+        results = _load_existing_results(args.output, args.config)
+        if results:
+            print(f"Loaded {len(results)} existing model result(s) from output dir")
+    else:
+        results = []
+    existing_names = {str(r.get("name")) for r in results if isinstance(r, dict) and r.get("name")}
+
     dataset_cache = DatasetCache()
     models_dir = Path(args.models_dir)
     total_configs = len(configs)
@@ -146,8 +159,13 @@ def run_training(args: argparse.Namespace) -> list[dict]:
                 f"[Trainer] Currently running config {config_index}/{total_configs} "
                 f"run {run_index}/{cfg_run_count} (seed={run_seed})"
             )
+            run_name = f"{base_name}_run{run_index}_seed{run_seed}"
+            if args.skip_existing_models and run_name in existing_names:
+                print(f"[Trainer] SKIP existing model run: {run_name}")
+                continue
+
             cfg_run = dict(cfg)
-            cfg_run["name"] = f"{base_name}_run{run_index}_seed{run_seed}"
+            cfg_run["name"] = run_name
             result = train_one_config(
                 cfg_run,
                 args.use_gpu,
@@ -159,6 +177,7 @@ def run_training(args: argparse.Namespace) -> list[dict]:
                 save_models=args.save_models,
             )
             results.append(result)
+            existing_names.add(run_name)
             resolver.record_result(result)
             # Persist after each finished model so partial runs still leave JSON outputs.
             save_results(results, args.output, args.config)
@@ -214,12 +233,10 @@ def _cfg_identifiers(cfg: dict[str, Any]) -> list[str]:
     return ids
 
 
-def _result_score(result: dict[str, Any]) -> tuple[float, float, float]:
-    metrics = result.get("test_metrics") or {}
-    f1 = float(metrics.get("f1", float("-inf")))
-    acc = float(metrics.get("accuracy", float("-inf")))
+def _result_score(result: dict[str, Any]) -> tuple[float, float]:
     val_acc = float(result.get("best_val_accuracy", float("-inf")))
-    return (f1, acc, val_acc)
+    val_loss = float(result.get("best_val_loss", float("inf")))
+    return (val_acc, -val_loss)
 
 
 class _DependencyResolver:
@@ -416,6 +433,27 @@ def _resolve_results_root(output_path: str, config_path: str) -> Path:
     if target.name == config_stem:
         return target.parent
     return target
+
+
+def _load_existing_results(output_path: str, config_path: str) -> list[dict]:
+    """Load existing per-model result JSONs (excluding summary) for resume mode."""
+    results_dir = _resolve_results_dir(output_path, config_path)
+    if not results_dir.exists():
+        return []
+
+    loaded: list[dict] = []
+    for file_path in sorted(results_dir.glob("*.json")):
+        if file_path.name == "summary.json":
+            continue
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("name"), str):
+            loaded.append(payload)
+
+    return loaded
 
 
 def save_results(results: list[dict], output_path: str, config_path: str) -> None:
