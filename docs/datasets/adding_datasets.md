@@ -143,7 +143,7 @@ Create `resources/configs/your_dataset/baseline_comparison.json`:
 
 **Config Parameters to Adjust**:
 - `maxlen`: Check average sentence length in your dataset
-- `sentences`: Number of sentences (or "max" for all)
+- `sentences`: Number of sentences (explicit positive integer)
 - `epochs`, `batch_size`: Adjust based on dataset size
 
 ### Step 4: Test Your Dataset
